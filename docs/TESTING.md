@@ -815,6 +815,8 @@ Idempotency requirements depend on the operation.
 
 # 43. File Upload Tests
 
+Apply the [ADR 0004](adr/0004-object-storage.md) test matrix with each storage flow: authorized/unauthorized and wrong-tenant uploads/downloads, key/ownership manipulation, separate audio quota and concurrency, actual size/type validation, incomplete-upload cleanup, deleted-resource denial, signed scope/expiry, sensitive-file policy, and provider-adapter contracts. Tenant-isolation tests remain release-critical.
+
 Test:
 
 - valid file accepted
@@ -1572,6 +1574,8 @@ Examples:
 ---
 
 # 90. Realtime Tests
+
+Apply [ADR 0005](adr/0005-realtime.md) to actual NestJS/Socket.IO integration and shared authorization. Include negative room/private-object tests, session/membership/permission revocation, reconnect/API state recovery, duplicate/out-of-order tolerance, and graceful operation without realtime. Multi-instance and broker-failure tests become mandatory when Redis scaling is introduced, not before it is needed.
 
 When realtime features are implemented, test:
 

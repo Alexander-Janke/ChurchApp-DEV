@@ -894,6 +894,8 @@ A task attachment requires task access.
 
 Avoid creating unrelated generic file permissions that bypass context.
 
+PostgreSQL metadata/resource relationships determine file access under [ADR 0004](adr/0004-object-storage.md). Neither shared storage, object keys, nor storage-administration rights grant private prayer or direct-message attachment access; sensitive files retain their contextual need-to-know requirements.
+
 ---
 
 # 49. Storage Administration
@@ -1264,6 +1266,8 @@ If access is revoked later, opening the notification must re-check current permi
 # 71. Permission-Aware Realtime
 
 Realtime subscriptions require current authorization.
+
+NestJS/Socket.IO gateways reuse the same application permission/resource policies as REST. Room identifiers are not grants, and membership in a church does not authorize every tenant/private-object channel. See [ADR 0005](adr/0005-realtime.md).
 
 Examples:
 

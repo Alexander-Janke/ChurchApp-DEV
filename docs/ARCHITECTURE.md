@@ -525,7 +525,7 @@ Detailed authorization rules are defined in:
 
 Files must not be stored directly inside PostgreSQL.
 
-Use S3-compatible object storage or an equivalent object storage solution.
+Use S3-compatible object storage behind an application-owned abstraction, with replaceable provider adapters. Production storage should be EU-hosted and independent of the application container filesystem. See [ADR 0004: Object Storage](adr/0004-object-storage.md).
 
 Examples:
 
@@ -536,7 +536,7 @@ Examples:
 - task attachments
 - sermon audio
 
-Database records should store metadata and object references.
+PostgreSQL stores authoritative file metadata, object references, and authorization relationships. Object keys are not authorization. Garage is the preferred initial local S3-compatible candidate when storage behavior is needed, subject to compatibility verification; application code must not depend on Garage-specific APIs.
 
 ---
 
@@ -556,11 +556,15 @@ Where necessary use:
 
 Public assets may use public delivery where explicitly intended.
 
+Private signed URLs are short-lived bearer grants, not user-bound authorization. Use authenticated delivery when current-user checks or immediate revocation are required, especially for highly sensitive files; see ADR 0004.
+
 ---
 
 # 18. Media
 
 Uploaded sermon audio uses object storage.
+
+Sermon audio has a separate logical quota from general church storage. Exact plan limits remain deferred.
 
 Direct uploaded video hosting is not part of V1.
 
@@ -587,6 +591,8 @@ Redis or an equivalent key-value system may be used for:
 Do not add Redis simply because it exists in the architecture.
 
 Use it where it solves a real need.
+
+Redis is not required solely for realtime. Do not initially use it as an authorization/private-data cache or session source of truth; PostgreSQL sessions remain authoritative. A Socket.IO Redis adapter is a later horizontal-scaling option under ADR 0005.
 
 ---
 
@@ -694,17 +700,9 @@ Do not tightly couple application logic to one email provider.
 
 Chat and selected live updates may require realtime communication.
 
-The architecture may use:
+Accepted: Socket.IO through NestJS gateways in the modular monolith when a feature needs realtime. Gateways reuse application/domain authorization; they must not create a separate permission system. See [ADR 0005: Realtime](adr/0005-realtime.md).
 
-- WebSockets
-- server-sent events
-- or another appropriate realtime mechanism
-
-Do not build a separate realtime microservice initially unless required.
-
-Start inside the modular backend where practical.
-
-Realtime infrastructure may later be separated if load requires it.
+REST/API and PostgreSQL remain authoritative for durable history/state. Clients recover state through the API after reconnecting. No separate realtime microservice or Redis dependency is required initially; horizontal scaling may later justify the Socket.IO Redis adapter.
 
 ---
 

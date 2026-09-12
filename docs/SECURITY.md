@@ -713,6 +713,8 @@ Access and changes should be auditable where appropriate.
 
 # 33. Files
 
+Objects are private by default. PostgreSQL metadata/resource relationships authorize application access; S3 keys and prefixes do not. Production storage should be EU-hosted behind the application abstraction in [ADR 0004](adr/0004-object-storage.md).
+
 Uploaded files must be treated as untrusted.
 
 Possible threats include:
@@ -779,6 +781,8 @@ Use:
 - short-lived signed URLs
 
 where appropriate.
+
+Signed download URLs are bearer capabilities that can remain usable within their validity after application permission changes. For current-user checks or immediate revocation, use authenticated delivery; highly sensitive files should prefer current authorization as specified in ADR 0004.
 
 ---
 
@@ -1288,6 +1292,8 @@ Users may later be offered privacy-oriented notification preview settings.
 ---
 
 # 67. Realtime Authorization
+
+Socket.IO/NestJS gateways reuse the normal application authorization model under [ADR 0005](adr/0005-realtime.md). Validate protected subscriptions and recipient payloads server-side, respond to session/permission/membership revocation, and do not introduce a stale-permission window without security review. REST/API and PostgreSQL remain authoritative; rooms and Redis adapters are not authorization or durable history.
 
 Realtime subscriptions must be authorized.
 

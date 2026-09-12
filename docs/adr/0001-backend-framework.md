@@ -85,7 +85,7 @@ Workers must preserve tenant and authorization boundaries. Retry safety, idempot
 
 Future realtime functionality should initially remain within the modular backend. Realtime entry points must enforce current session, tenant, audience, and object access rules and account for permission revocation.
 
-A separate realtime service requires a demonstrated scaling or operational need and an explicit architectural decision. The transport and implementation are deferred.
+A separate realtime service requires a demonstrated scaling or operational need and an explicit architectural decision. [ADR 0005](0005-realtime.md) now records Socket.IO through NestJS gateways; implementation remains deferred until needed.
 
 ## Alternatives Considered
 

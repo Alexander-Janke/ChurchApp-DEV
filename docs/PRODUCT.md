@@ -1890,7 +1890,7 @@ Examples:
 
 Each church receives a limited storage quota.
 
-Separate media quotas may exist for sermon audio.
+Sermon audio has a separate logical quota from general church storage. Exact plan-dependent limits are deferred.
 
 ---
 

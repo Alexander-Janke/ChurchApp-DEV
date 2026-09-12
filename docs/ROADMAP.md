@@ -183,6 +183,8 @@ Do not choose an authentication solution that prevents required security behavio
 
 ## 4.5 Phase 0 Exit Criteria
 
+Storage and realtime architecture are accepted in [ADR 0004](adr/0004-object-storage.md) and [ADR 0005](adr/0005-realtime.md). Record these decisions now; implement the S3 abstraction/local service only when storage behavior is needed and Socket.IO gateways only with a justified realtime feature. Garage is the preferred local storage candidate subject to compatibility; neither realtime nor its Redis adapter is a minimum Phase 0 runtime requirement.
+
 Phase 0 is complete when:
 
 - repository structure exists
@@ -976,6 +978,8 @@ No AI functionality.
 ---
 
 # 49. Phase 4G – Sermons
+
+Enforce the separate logical sermon-audio quota under ADR 0004 when audio uploads are introduced; do not defer upload quota enforcement until Phase 6 storage-administration UI.
 
 Implement sermon library.
 
