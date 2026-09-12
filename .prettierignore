@@ -1,0 +1,14 @@
+# Generated package-manager files and local tooling state.
+node_modules/
+.pnpm-store/
+.cache/
+pnpm-lock.yaml
+.codex/
+
+# Generated outputs; source/configuration remains eligible for formatting.
+.next/
+coverage/
+**/dist/
+
+# Flutter will use Dart's formatter when scaffolded.
+/apps/mobile/

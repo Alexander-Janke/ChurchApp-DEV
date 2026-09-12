@@ -1,0 +1,9 @@
+packages:
+  - "apps/*"
+  - "services/*"
+  - "packages/*"
+
+# Keep install artifacts local; these directories are already ignored by Git.
+storeDir: .pnpm-store
+cacheDir: .cache/pnpm
+stateDir: .cache/pnpm-state
