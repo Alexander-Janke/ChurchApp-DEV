@@ -1345,6 +1345,15 @@ Security checks
 
 Exact jobs may run in parallel.
 
+The initial GitHub Actions workflow is `.github/workflows/ci.yml`. It runs four
+focused jobs: TypeScript validation covers formatting, contracts, the API, the
+web app, and the platform-admin app; PostgreSQL integration CI uses a disposable
+`postgres:18.6` service for the API integration suite; Flutter CI runs
+`flutter pub get`, formatting verification, analysis, and tests; and Playwright
+E2E CI installs Chromium with its supported Linux dependencies before running the
+web, admin, and API health checks. The workflow does not require repository
+secrets and does not build mobile binaries.
+
 ---
 
 # 76. Monorepo CI

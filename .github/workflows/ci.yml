@@ -1,0 +1,193 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 24.19.0
+  PNPM_VERSION: 11.19.0
+
+jobs:
+  typescript:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js and pnpm
+        uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          runtime: node@${{ env.NODE_VERSION }}
+          install: false
+
+      - name: Verify tool versions
+        run: |
+          node --version
+          pnpm --version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Validate contracts
+        run: |
+          pnpm contracts:typecheck
+          pnpm contracts:test
+
+      - name: Validate API
+        run: |
+          pnpm api:typecheck
+          pnpm api:test
+          pnpm api:build
+
+      - name: Validate web application
+        run: |
+          pnpm web:lint
+          pnpm web:typecheck
+          pnpm web:test
+          pnpm web:build
+
+      - name: Validate platform admin
+        run: |
+          pnpm admin:lint
+          pnpm admin:typecheck
+          pnpm admin:test
+          pnpm admin:build
+
+  database:
+    name: PostgreSQL integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://postgres:ci_only_test_password@localhost:5432/church_platform_test
+    services:
+      postgres:
+        image: postgres:18.6
+        env:
+          POSTGRES_DB: church_platform_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_only_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d church_platform_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js and pnpm
+        uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          runtime: node@${{ env.NODE_VERSION }}
+          install: false
+
+      - name: Verify tool versions
+        run: |
+          node --version
+          pnpm --version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run PostgreSQL integration tests
+        run: pnpm api:test:db
+
+  flutter:
+    name: Flutter
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          cache: false
+          pub-cache: false
+
+      - name: Verify Flutter and Dart versions
+        run: |
+          flutter --version
+          dart --version
+
+      - name: Install Flutter dependencies
+        working-directory: apps/mobile
+        run: flutter pub get
+
+      - name: Verify Flutter formatting
+        working-directory: apps/mobile
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze Flutter application
+        working-directory: apps/mobile
+        run: flutter analyze
+
+      - name: Test Flutter application
+        working-directory: apps/mobile
+        run: flutter test
+
+      - name: Ensure dependency lockfile is unchanged
+        run: git diff --exit-code -- apps/mobile/pubspec.lock
+
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js and pnpm
+        uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          runtime: node@${{ env.NODE_VERSION }}
+          install: false
+
+      - name: Verify tool versions
+        run: |
+          node --version
+          pnpm --version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck E2E project
+        run: pnpm e2e:typecheck
+
+      - name: Install Chromium and Linux dependencies
+        run: pnpm --filter @church-platform/e2e exec playwright install --with-deps chromium
+
+      - name: Run Playwright E2E tests
+        run: pnpm e2e:test

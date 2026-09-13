@@ -330,6 +330,16 @@ pnpm e2e:test
 The initial suite verifies the two development shells and `GET /api/v1/health`.
 Authentication and product workflows will be added as those features are implemented.
 
+## Continuous Integration
+
+`.github/workflows/ci.yml` runs for pull requests and pushes to `main`. Its
+TypeScript job checks formatting, contracts, API, web, and admin workspaces; the
+PostgreSQL job runs the API integration suite against a disposable PostgreSQL
+18.6 service; the Flutter job runs formatting, analysis, and tests; and the E2E
+job installs Chromium and runs the Playwright shell and health checks. CI uses
+the repository's Node.js `24.19.0` and pnpm `11.19.0` versions and requires no
+repository secrets.
+
 ## Platform Admin Shell
 
 `apps/admin` is the private `@church-platform/admin` Next.js App Router workspace.
