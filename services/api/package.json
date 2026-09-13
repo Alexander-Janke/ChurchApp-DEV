@@ -7,12 +7,16 @@
     "start": "node dist/main.js",
     "test": "vitest run --exclude test/database.integration.spec.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "prebuild": "pnpm --filter @church-platform/contracts build",
+    "pretest": "pnpm --filter @church-platform/contracts build",
+    "pretypecheck": "pnpm --filter @church-platform/contracts build",
     "db:generate": "drizzle-kit generate --config drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
     "db:check": "drizzle-kit check --config drizzle.config.ts",
     "test:db": "vitest run test/database.integration.spec.ts"
   },
   "dependencies": {
+    "@church-platform/contracts": "workspace:*",
     "@nestjs/common": "12.0.1",
     "@nestjs/core": "12.0.1",
     "@nestjs/platform-express": "12.0.1",

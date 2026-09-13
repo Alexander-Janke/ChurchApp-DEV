@@ -771,11 +771,10 @@ Where useful, define shared API contracts in:
 packages/contracts/
 ```
 
-The goal is consistency between:
-
-- backend
-- web
-- mobile
+TypeScript applications may consume the package for consistency between the
+backend, main web application, and platform-admin application. Flutter does
+not import TypeScript; its language-neutral boundary is the versioned
+HTTP/OpenAPI API.
 
 Do not expose internal database models directly as public API contracts.
 

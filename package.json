@@ -6,8 +6,8 @@
     "node": ">=24.19.0 <25"
   },
   "scripts": {
-    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\" \"apps/web/**/*.{ts,tsx,mjs,json,css}\" \"apps/admin/**/*.{ts,tsx,mjs,json,css}\"",
-    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\" \"apps/web/**/*.{ts,tsx,mjs,json,css}\" \"apps/admin/**/*.{ts,tsx,mjs,json,css}\"",
+    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\" \"apps/web/**/*.{ts,tsx,mjs,json,css}\" \"apps/admin/**/*.{ts,tsx,mjs,json,css}\" \"packages/**/*.{ts,mts,json}\"",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\" \"apps/web/**/*.{ts,tsx,mjs,json,css}\" \"apps/admin/**/*.{ts,tsx,mjs,json,css}\" \"packages/**/*.{ts,mts,json}\"",
     "db:up": "docker compose -f infrastructure/docker/compose.dev.yml up -d",
     "db:down": "docker compose -f infrastructure/docker/compose.dev.yml down",
     "db:logs": "docker compose -f infrastructure/docker/compose.dev.yml logs --follow postgres",
@@ -21,6 +21,9 @@
     "db:migrate": "pnpm --filter @church-platform/api db:migrate",
     "db:check": "pnpm --filter @church-platform/api db:check",
     "api:test:db": "pnpm --filter @church-platform/api test:db",
+    "contracts:build": "pnpm --filter @church-platform/contracts build",
+    "contracts:typecheck": "pnpm --filter @church-platform/contracts typecheck",
+    "contracts:test": "pnpm --filter @church-platform/contracts test",
     "web:dev": "pnpm --filter @church-platform/web dev",
     "web:build": "pnpm --filter @church-platform/web build",
     "web:start": "pnpm --filter @church-platform/web start",

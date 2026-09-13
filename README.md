@@ -121,7 +121,8 @@ coverage as source packages are introduced. Prettier uses the shared
 
 pnpm discovers actual package manifests under `apps/*`, `services/*`, and
 `packages/*`. Flutter remains a separate Dart project under `apps/mobile` and
-needs no Node package manifest. The API and main web workspaces are implemented; mobile and admin remain deferred.
+needs no Node package manifest. The API, main web, platform-admin, and shared
+contracts workspaces are implemented; Flutter remains independent of pnpm.
 No additional monorepo orchestrator is required.
 
 `tsconfig.base.json` shares strictness and casing checks only. Application
@@ -203,6 +204,21 @@ uses ESM/NodeNext and TypeScript 6 to match Nest CLI tooling. Strict source and
 test checking remains enabled; API-local `skipLibCheck` excludes third-party
 library declarations with optional bundler types. Authentication, tenant authorization,
 and business modules are intentionally absent.
+
+## Shared TypeScript Contracts
+
+`packages/contracts` contains the private `@church-platform/contracts` package
+for framework-independent transport contracts shared by the NestJS API and
+future TypeScript clients. From the repository root:
+
+```sh
+pnpm contracts:typecheck
+pnpm contracts:test
+pnpm contracts:build
+```
+
+Flutter does not import this TypeScript package; its language-neutral boundary
+is the versioned HTTP/OpenAPI API.
 
 ## Database Foundation
 
