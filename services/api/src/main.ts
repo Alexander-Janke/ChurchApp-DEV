@@ -7,7 +7,9 @@ import { configureApp, getPort } from "./configure-app.js";
 
 async function bootstrap(): Promise<void> {
   const port = getPort();
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
   configureApp(app);
   try {
     await app.listen(port, "0.0.0.0");

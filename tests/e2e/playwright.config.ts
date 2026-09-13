@@ -43,6 +43,8 @@ export default defineConfig({
       reuseExistingServer: true,
       env: {
         DATABASE_URL: "postgresql://127.0.0.1:5432/church_platform_e2e",
+        BETTER_AUTH_SECRET: "e2e-only-secret-that-is-at-least-32-characters",
+        BETTER_AUTH_URL: "http://localhost:3001",
         PORT: "3001",
       },
     },

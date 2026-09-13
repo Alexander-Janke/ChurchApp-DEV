@@ -479,6 +479,16 @@ The architecture must support:
 - logout from all other devices
 - 2FA
 
+Task 1.1 establishes the application-owned NestJS authentication boundary and
+Better Auth/Drizzle integration only; authentication tables and flows remain
+deferred. In Task 1.2, use the pinned Better Auth schema generator (`auth
+generate`) against this configuration, review the generated Drizzle schema,
+add it to the application-owned schema, generate and review a Drizzle
+migration, and apply that migration through the controlled migration workflow.
+The API never performs automatic schema migration on startup. Until those
+tables exist, the integration disables Better Auth runtime schema validation
+explicitly; this does not authorize writes or bypass database migrations.
+
 ---
 
 # 14. Sessions
