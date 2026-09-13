@@ -316,3 +316,21 @@ pnpm admin:start
 Open `http://localhost:3002`. The local three-app convention is Web `3000`, API
 `3001` when run alongside the web apps, and Platform Admin `3002`. The API's own
 default remains `3000`; set `PORT=3001` when running all three together.
+
+## Mobile Shell
+
+`apps/mobile` is the Flutter application for Android and iOS. It uses Flutter
+3.47.1 with Dart 3.13.1 in this development environment and remains separate
+from the pnpm workspace. From the mobile directory:
+
+```sh
+cd apps/mobile
+flutter pub get
+flutter run
+flutter analyze
+flutter test
+```
+
+The shell uses Flutter's built-in Material 3 themes with system light/dark mode.
+It has no API, authentication, networking, state-management or routing code yet.
+iOS builds require macOS and Xcode; iOS compilation was not validated on Windows.
