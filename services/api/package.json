@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "prebuild": "pnpm --filter @church-platform/contracts build",
     "pretest": "pnpm --filter @church-platform/contracts build",
+    "pretest:db": "pnpm --filter @church-platform/contracts build",
     "pretypecheck": "pnpm --filter @church-platform/contracts build",
     "db:generate": "drizzle-kit generate --config drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
