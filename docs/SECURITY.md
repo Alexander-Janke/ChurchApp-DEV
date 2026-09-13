@@ -93,6 +93,15 @@ Authentication must be centralized.
 
 Use Better Auth behind the application-owned NestJS AuthModule, as accepted in [ADR 0003: Authentication and Sessions](adr/0003-authentication-and-sessions.md). Library defaults never override application authorization or security policy.
 
+The canonical Better Auth tables are platform-global security records in `public`,
+not church-tenant tables. They have no tenant field or tenant RLS policy; access
+remains behind AuthModule and application-owned account/security authorization.
+Their presence does not grant church administrators access to identities, sessions,
+or provider credentials. The generator owns library field definitions; reviewed
+application Drizzle migrations own deployment. Default schema validation is enabled
+and startup never migrates the database. Task 1.2 enables no signup/login or linking
+flow and does not change the PostgreSQL-backed opaque-session architecture.
+
 Supported initial methods:
 
 - email and password

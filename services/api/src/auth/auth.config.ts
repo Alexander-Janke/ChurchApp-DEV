@@ -1,6 +1,7 @@
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { betterAuth } from "better-auth";
 import type { Database } from "../database/database.types.js";
+import * as authSchema from "../database/schema/auth.js";
 import { BETTER_AUTH_BASE_PATH } from "./auth.constants.js";
 
 const MIN_SECRET_LENGTH = 32;
@@ -60,12 +61,6 @@ export function createBetterAuth(database: Database) {
     baseURL: getBetterAuthUrl(),
     basePath: BETTER_AUTH_BASE_PATH,
     secret: getBetterAuthSecret(),
-    database: drizzleAdapter(database, { provider: "pg" }),
-    // Task 1.2 will add the reviewed generated schema and migration. Until
-    // then, runtime schema validation is disabled without changing the
-    // adapter or allowing startup to perform migrations.
-    advanced: {
-      database: { validateSchema: false },
-    },
+    database: drizzleAdapter(database, { provider: "pg", schema: authSchema }),
   });
 }

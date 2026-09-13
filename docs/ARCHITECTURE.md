@@ -479,15 +479,44 @@ The architecture must support:
 - logout from all other devices
 - 2FA
 
-Task 1.1 establishes the application-owned NestJS authentication boundary and
-Better Auth/Drizzle integration only; authentication tables and flows remain
-deferred. In Task 1.2, use the pinned Better Auth schema generator (`auth
-generate`) against this configuration, review the generated Drizzle schema,
-add it to the application-owned schema, generate and review a Drizzle
-migration, and apply that migration through the controlled migration workflow.
-The API never performs automatic schema migration on startup. Until those
-tables exist, the integration disables Better Auth runtime schema validation
-explicitly; this does not authorize writes or bypass database migrations.
+Task 1.1 establishes the application-owned NestJS authentication boundary.
+Task 1.2 adds the canonical Better Auth 1.7.4 `user`, `session`, `account`, and
+`verification` tables in PostgreSQL's `public` namespace. These are platform-global
+identities/security records, not church-owned resources: no `church_id` or tenant
+RLS applies. Future membership tables will reference the global user identity.
+
+Better Auth's pinned `auth@1.7.4` generator is authoritative for its fields and
+relations in `services/api/src/database/schema/auth.ts`; the existing schema index
+exports them. The Drizzle adapter receives this schema explicitly, with canonical
+model names and default schema validation restored. That validation checks Drizzle
+metadata; real PostgreSQL integration tests also verify the migrated database.
+Application-owned, reviewed Drizzle migrations in `services/api/migrations` remain
+the only schema deployment mechanism. No automatic migration occurs at startup.
+
+For regeneration, from `services/api`, supply explicit non-production
+`BETTER_AUTH_SECRET`/`BETTER_AUTH_URL` values to the process and run:
+
+```text
+pnpm dlx auth@1.7.4 generate --config ./src/auth/auth.schema.config.ts --output ../../.cache/auth-schema-review/auth.ts --adapter drizzle --dialect postgresql --yes
+```
+
+Create the ignored review directory first. The CLI-only configuration reuses the
+application factory with `drizzle.mock`, so generation needs no pool, connection,
+or database writes. Review the output before replacing the canonical schema;
+then use `pnpm db:generate` with the existing Drizzle configuration and review the
+SQL before `pnpm db:migrate`. Do not use Better Auth's direct migration command.
+The pinned generator was run twice with identical output. No generator dependency
+is added to the application. One-off pnpm cache/store overrides may keep CLI
+artifacts in the repository's ignored caches without changing workspace settings.
+
+Preserve generator semantics: text primary keys, unique user email/session token,
+and non-unique verification identifier lookup. The generated account table has a
+user index but no composite `(provider_id, account_id)` uniqueness constraint;
+Better Auth 1.7.4 rejects ambiguous identity lookups at runtime. Review concurrency
+and provider identity integrity before enabling account-creation/linking flows;
+do not assume database-enforced provider uniqueness. Generated timestamps are
+without time zone, and `$onUpdate` is Drizzle behavior, not a database trigger.
+Signup, login and the remaining authentication flows are still deferred.
 
 ---
 

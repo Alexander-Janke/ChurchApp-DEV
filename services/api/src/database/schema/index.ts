@@ -1,2 +1,2 @@
-// Canonical schema entry point. Product tables are intentionally absent.
-export {};
+// Canonical schema entry point. Auth identities are platform-global.
+export * from "./auth.js";

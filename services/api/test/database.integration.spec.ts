@@ -1,8 +1,17 @@
 import "reflect-metadata";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { sql } from "drizzle-orm";
-import type { Pool } from "pg";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { Pool, type PoolClient } from "pg";
+import { randomUUID } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
+import type { NestExpressApplication } from "@nestjs/platform-express";
+import { AuthService } from "@thallesp/nestjs-better-auth";
+import { AuthModule } from "../src/auth/auth.module.js";
+import type { createBetterAuth } from "../src/auth/auth.config.js";
+import { getDatabaseUrl } from "../src/database/database.config.js";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { DATABASE_POOL } from "../src/database/database.constants.js";
 import { DatabaseModule } from "../src/database/database.module.js";
 import { DatabaseService } from "../src/database/database.service.js";
@@ -64,5 +73,214 @@ describe("real PostgreSQL foundation", () => {
     expect(result.rows[0]?.status).toBe("aborted");
     expect(pool.idleCount).toBe(pool.totalCount);
     expect(pool.waitingCount).toBe(0);
+  });
+});
+
+// A unique database keeps migration/constraint tests away from existing local data.
+// The configured test role needs CREATEDB; it is not a production runtime role.
+describe("Better Auth migrated PostgreSQL schema", () => {
+  const databaseName = `auth_schema_test_${randomUUID().replaceAll("-", "")}`;
+  const migrationsFolder = fileURLToPath(
+    new URL("../migrations", import.meta.url),
+  );
+  let maintenance: Pool;
+  let pool: Pool;
+  let app: NestExpressApplication;
+  let created = false;
+
+  beforeAll(async () => {
+    const url = new URL(getDatabaseUrl());
+    maintenance = new Pool({ connectionString: url.toString() });
+    // Identifier is wholly generated here, never supplied by a request or environment.
+    await maintenance.query(
+      `CREATE DATABASE "${databaseName}" TEMPLATE template0`,
+    );
+    created = true;
+    url.pathname = `/${databaseName}`;
+    pool = new Pool({ connectionString: url.toString() });
+    await migrate(drizzle(pool), { migrationsFolder });
+    vi.stubEnv(
+      "BETTER_AUTH_SECRET",
+      "database-test-only-not-a-runtime-secret-12345",
+    );
+    vi.stubEnv("BETTER_AUTH_URL", "http://localhost:3001");
+    const module = await Test.createTestingModule({ imports: [AuthModule] })
+      .overrideProvider(DATABASE_POOL)
+      .useValue(pool)
+      .compile();
+    app = module.createNestApplication<NestExpressApplication>({
+      bodyParser: false,
+    });
+    await app.init();
+  }, 30_000);
+
+  afterAll(async () => {
+    try {
+      if (app) await app.close();
+      else await pool?.end();
+    } finally {
+      try {
+        if (created) await maintenance.query(`DROP DATABASE "${databaseName}"`);
+      } finally {
+        await maintenance?.end();
+        vi.unstubAllEnvs();
+      }
+    }
+  });
+
+  async function rolledBack(work: (client: PoolClient) => Promise<void>) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await work(client);
+    } finally {
+      try {
+        await client.query("ROLLBACK");
+      } finally {
+        client.release();
+      }
+    }
+  }
+
+  it("migrates a clean database and safely skips the applied migration on a second run", async () => {
+    await migrate(drizzle(pool), { migrationsFolder });
+    const tables = await pool.query<{ tablename: string }>(
+      "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename",
+    );
+    expect(tables.rows.map((row) => row.tablename)).toEqual([
+      "account",
+      "session",
+      "user",
+      "verification",
+    ]);
+    const journal = await pool.query(
+      "SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations",
+    );
+    expect(journal.rows[0].count).toBe(1);
+  });
+
+  it("starts AuthModule with default schema validation and queries every model through its real adapter", async () => {
+    const context =
+      await app.get<AuthService<ReturnType<typeof createBetterAuth>>>(
+        AuthService,
+      ).instance.$context;
+    expect(context.checkSchema).toBeTypeOf("function");
+    await context.checkSchema!();
+    for (const model of ["user", "session", "account", "verification"]) {
+      await expect(
+        context.adapter.findMany({ model, limit: 1 }),
+      ).resolves.toEqual([]);
+    }
+  });
+
+  it("creates the generator's lookup indexes and unique constraints", async () => {
+    const result = await pool.query<{ indexname: string; indexdef: string }>(
+      "SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public' ORDER BY indexname",
+    );
+    expect(result.rows.map((row) => row.indexname)).toEqual([
+      "account_pkey",
+      "account_userId_idx",
+      "session_pkey",
+      "session_token_unique",
+      "session_userId_idx",
+      "user_email_unique",
+      "user_pkey",
+      "verification_identifier_idx",
+      "verification_pkey",
+    ]);
+    for (const name of ["user_email_unique", "session_token_unique"]) {
+      expect(
+        result.rows.find((row) => row.indexname === name)?.indexdef,
+      ).toContain("UNIQUE INDEX");
+    }
+  });
+
+  it("rejects duplicate user emails", async () => {
+    await rolledBack(async (client) => {
+      await client.query(
+        'INSERT INTO "user" (id, name, email) VALUES ($1, $2, $3)',
+        ["schema-user", "Schema fixture", "schema@example.invalid"],
+      );
+      await expect(
+        client.query(
+          'INSERT INTO "user" (id, name, email) VALUES ($1, $2, $3)',
+          ["other-user", "Schema fixture", "schema@example.invalid"],
+        ),
+      ).rejects.toMatchObject({
+        code: "23505",
+        constraint: "user_email_unique",
+      });
+    });
+  });
+
+  it("rejects duplicate opaque session tokens", async () => {
+    await rolledBack(async (client) => {
+      await client.query(
+        'INSERT INTO "user" (id, name, email) VALUES ($1, $2, $3)',
+        ["schema-user", "Schema fixture", "schema@example.invalid"],
+      );
+      const insert =
+        "INSERT INTO session (id, token, user_id, expires_at, updated_at) VALUES ($1, $2, $3, now(), now())";
+      await client.query(insert, [
+        "first-session",
+        "non-authenticating-test-fixture",
+        "schema-user",
+      ]);
+      await expect(
+        client.query(insert, [
+          "second-session",
+          "non-authenticating-test-fixture",
+          "schema-user",
+        ]),
+      ).rejects.toMatchObject({
+        code: "23505",
+        constraint: "session_token_unique",
+      });
+    });
+  });
+
+  it.each(["session", "account"])(
+    "rejects a %s row whose user does not exist",
+    async (table) => {
+      await rolledBack(async (client) => {
+        const statement =
+          table === "session"
+            ? "INSERT INTO session (id, token, user_id, expires_at, updated_at) VALUES ($1, $2, $3, now(), now())"
+            : "INSERT INTO account (id, account_id, user_id, provider_id, updated_at) VALUES ($1, $2, $3, $4, now())";
+        const values =
+          table === "session"
+            ? ["orphan", "expired-test-fixture", "missing-user"]
+            : ["orphan", "schema-account", "missing-user", "schema-test"];
+        await expect(client.query(statement, values)).rejects.toMatchObject({
+          code: "23503",
+          constraint: `${table}_user_id_user_id_fk`,
+        });
+      });
+    },
+  );
+
+  it("cascades user deletion to sessions and accounts", async () => {
+    await rolledBack(async (client) => {
+      await client.query(
+        'INSERT INTO "user" (id, name, email) VALUES ($1, $2, $3)',
+        ["schema-user", "Schema fixture", "schema@example.invalid"],
+      );
+      await client.query(
+        "INSERT INTO session (id, token, user_id, expires_at, updated_at) VALUES ($1, $2, $3, now(), now())",
+        ["schema-session", "expired-test-fixture", "schema-user"],
+      );
+      await client.query(
+        "INSERT INTO account (id, account_id, provider_id, user_id, updated_at) VALUES ($1, $2, $3, $4, now())",
+        [
+          "schema-account",
+          "schema-provider-account",
+          "schema-test",
+          "schema-user",
+        ],
+      );
+      await client.query('DELETE FROM "user" WHERE id = $1', ["schema-user"]);
+      expect((await client.query("SELECT id FROM session")).rows).toEqual([]);
+      expect((await client.query("SELECT id FROM account")).rows).toEqual([]);
+    });
   });
 });

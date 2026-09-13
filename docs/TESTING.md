@@ -229,6 +229,29 @@ For important schema changes, also test upgrade behavior from a representative e
 
 Destructive migrations require additional review.
 
+Task 1.2 extends `pnpm api:test:db` with a uniquely named disposable database
+created from `template0`, using the configured local/CI PostgreSQL server. The
+**test-only role needs CREATEDB**; this is not a requirement for production runtime
+credentials. Tests migrate through Drizzle's migration runner, repeat migration,
+start AuthModule with default schema validation, query all four models through the
+real Better Auth adapter, and verify unique email/token constraints, lookup indexes,
+foreign keys and cascading deletion. Synthetic constraint fixtures are rolled back;
+no verification records or complete signup/login flows are created. Cleanup drops
+only the uniquely generated database, never the database named in `DATABASE_URL`.
+
+Fast API tests check Better Auth's default schema validation without database I/O.
+This checks Drizzle metadata, not PostgreSQL catalogs; the real integration tests
+cover the physical schema. Existing health/auth-route and JSON parsing tests remain
+required. Generator reproduction instructions are in `ARCHITECTURE.md`.
+
+For manual validation, point `DATABASE_URL` at a new disposable local database,
+run `pnpm db:migrate` twice, then `pnpm db:check`. The second migration run should
+skip already applied entries. To reverse this initial migration during development,
+discard and recreate only that disposable database, then replay the reviewed
+migration history. Never reset a shared or production database this way. Drizzle
+does not provide an automatic down migration here; applied shared/production
+migrations need a deliberate reviewed forward correction or recovery plan.
+
 ---
 
 # 12. Mandatory Tenant Isolation Tests
