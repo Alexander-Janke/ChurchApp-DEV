@@ -830,7 +830,23 @@ Avoid production configuration that only exists as undocumented manual server ch
 
 # 31. Containers
 
-Use Docker for backend infrastructure.
+Use Docker for backend infrastructure and for deployable application images.
+
+The initial application image foundation consists of:
+
+```text
+services/api/Dockerfile   API container, internal port 3001
+apps/web/Dockerfile       Web container, internal port 3000
+apps/admin/Dockerfile     Admin container, internal port 3002
+```
+
+The API, web, and platform-admin images use multi-stage builds and run as
+non-root Node users. The API receives database configuration at runtime and
+does not run migrations or seed data during image build or container startup.
+Flutter remains a native Android/iOS application and is not containerized.
+
+These Dockerfiles establish image foundations only. Production orchestration,
+reverse proxy, TLS, registry, and deployment procedures are documented later.
 
 Initial services may include:
 

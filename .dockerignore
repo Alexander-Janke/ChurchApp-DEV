@@ -1,0 +1,43 @@
+.git
+.github
+
+# Local dependencies, package-manager state, and generated output.
+node_modules
+**/node_modules
+.pnpm-store
+.cache
+**/.next
+**/dist
+**/coverage
+*.tsbuildinfo
+
+# Local environment and runtime data.
+.env
+.env.*
+!.env.example
+infrastructure/**/.local
+infrastructure/**/secrets
+infrastructure/**/backups
+infrastructure/**/runtime
+infrastructure/**/.data
+
+# Test and local report output.
+tests/e2e/playwright-report
+tests/e2e/test-results
+**/*.log
+
+# Flutter generated data is not part of application images.
+apps/mobile/.dart_tool
+apps/mobile/build
+apps/mobile/**/ephemeral
+apps/mobile/**/.symlinks
+apps/mobile/android/.gradle
+apps/mobile/android/local.properties
+apps/mobile/ios/Pods
+
+# Local editor and operating-system files.
+.idea
+.vscode
+.DS_Store
+Thumbs.db
+Desktop.ini

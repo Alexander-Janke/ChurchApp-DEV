@@ -340,6 +340,22 @@ job installs Chromium and runs the Playwright shell and health checks. CI uses
 the repository's Node.js `24.19.0` and pnpm `11.19.0` versions and requires no
 repository secrets.
 
+## Application Container Images
+
+Production-oriented application Dockerfiles are available for the API, main web
+app, and platform admin app. Build them from the repository root with Docker:
+
+```sh
+docker build -f services/api/Dockerfile -t church-platform-api:test .
+docker build -f apps/web/Dockerfile -t church-platform-web:test .
+docker build -f apps/admin/Dockerfile -t church-platform-admin:test .
+```
+
+The containers listen internally on API `3001`, web `3000`, and admin `3002`.
+The API receives `DATABASE_URL` at runtime; no environment-specific settings or
+credentials are baked into an image. Production orchestration, reverse proxy,
+TLS, registries, and deployment procedures are not established yet.
+
 ## Platform Admin Shell
 
 `apps/admin` is the private `@church-platform/admin` Next.js App Router workspace.
