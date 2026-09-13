@@ -335,6 +335,34 @@ Session tokens must:
 
 Use PostgreSQL-backed server-side sessions with opaque credentials, not an application JWT access/refresh architecture initially. Authoritative checks must enforce immediate server-side invalidation; do not enable cookie-cached/stateless acceptance that delays revocation.
 
+Task 1.4 enforces normal web sessions with explicit seven-day rolling expiry,
+one-day refresh threshold, and application-owned 30-day absolute expiry. At
+`createdAt + 30 days <= now`, before hooks delete the row and prevent native session
+resolution/refresh; invalid timestamps and storage errors fail closed. Creation time
+never moves during sliding refresh. Activity before the native refresh threshold
+does not update the database, so the rolling deadline is measured from the last
+qualifying refresh, not every HTTP request. Mobile/elevation/step-up rules below
+remain future work and cannot be selected by an untrusted client label.
+
+Password login remains verification-gated; unknown emails and incorrect passwords
+share the same error. Session credentials are filtered from browser JSON, including
+login and session lists. Management accepts non-secret `sessionId` values, resolves
+only owned records, and delegates deletion to Better Auth's canonical endpoint.
+Single, other, and all-session revocation are user-scoped; all includes current.
+Logout verifies server-side deletion before reporting success, since native sign-out
+otherwise catches deletion failures. Session-store diagnostics are sanitized.
+
+Cookies retain `HttpOnly`, `SameSite=Lax`, `Path=/`, and host-only scope (no domain
+override). Local HTTP uses `better-auth.session_token`; HTTPS uses its `__Secure-`
+prefix and `Secure`. Production explicitly requires secure cookies even if an HTTP
+base URL is misconfigured; deployments must still provide HTTPS and the correct
+origin. No credential is exposed in ordinary response headers/JSON or logs. Cookie
+cache and secondary storage remain disabled. User-agent and available IP metadata
+come from Better Auth's request handling and are untrusted display/abuse metadata,
+not authentication assurance. No geolocation is collected. Trusted reverse-proxy/IP
+configuration and shared multi-instance rate limiting remain deployment work; the
+existing production in-memory limiter has not been disabled or made distributed.
+
 Initial policy defaults from ADR 0003:
 
 | Scope | Inactivity | Absolute limit / freshness |

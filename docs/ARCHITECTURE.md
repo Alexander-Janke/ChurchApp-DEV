@@ -542,8 +542,9 @@ Verification tokens are not authentication sessions and do not violate ADR 0003:
 normal application sessions remain opaque server-side PostgreSQL sessions. No JWT
 session/access-token/refresh-token architecture or JWT plugin is used. Signup and
 verification do not auto-sign-in.
-Frontend signup/login, final session policy, and other authentication flows remain
-deferred. The pinned generator produces the unchanged Task 1.2 schema.
+Frontend signup/login and other authentication flows remain deferred. Task 1.4
+establishes only the normal web session policy below. The pinned generator produces
+the unchanged Task 1.2 schema.
 
 ---
 
@@ -552,6 +553,53 @@ deferred. The pinned generator produces the unchanged Task 1.2 schema.
 Use PostgreSQL-backed server-side sessions with opaque credentials: HttpOnly browser cookies and securely stored mobile bearer credentials. Do not introduce an application JWT access/refresh architecture. ADR 0003 defines authoritative revocation, web/mobile lifetimes, administrative elevation, and five-minute critical-operation step-up. Successful password reset revokes all existing sessions.
 
 Users may have multiple active sessions.
+
+Task 1.4 uses canonical Better Auth password login at
+`POST /api/v1/auth/sign-in/email` with verified email required. Accepted fields are
+`email`, `password`, `callbackURL`, and `rememberMe`; unknown/protected fields are
+rejected. Wrong passwords and unknown email addresses receive the same error.
+
+Normal web sessions explicitly use `expiresIn=604800` (seven days) and
+`updateAge=86400` (one day). Qualifying activity is successful native session
+resolution that reaches Better Auth's refresh threshold. Requests before that
+threshold do not write a new activity timestamp: expiry is seven days from the
+last creation/qualifying refresh, rather than exactly seven days from every request.
+`rememberMe=false` retains the library's shorter, non-rolling session behavior.
+Neither cookie caching nor secondary storage is enabled.
+
+`auth-session-policy.ts` owns the additional absolute limit using an injectable
+clock function: `createdAt + 30 days <= now` is expired, even if `expiresAt` is later.
+Supported before hooks run on HTTP and configured `auth.api` calls, resolve the
+signed cookie through Better Auth, and delete expired rows before native middleware
+can authorize or refresh them. Database failures fail closed with sanitized errors.
+Future application consumers must use the configured AuthModule instance's API,
+not raw library route functions or internal adapters as independent authenticators.
+This adds a database lookup before native session resolution; no schema change,
+background cleanup dependency, or custom session parser is introduced.
+
+Canonical operations under `/api/v1/auth` are:
+
+| Method/path | Behavior |
+| --- | --- |
+| `GET /get-session` | Current user/session metadata, or `null` when unauthenticated |
+| `POST /sign-out` | Deletes current session and clears cookies; failed deletion cannot report success |
+| `GET /list-sessions` | Own active metadata only; absolute-expired entries are deleted/omitted |
+| `POST /revoke-session` | Application boundary accepts `{ "sessionId": "..." }`, resolves ownership, then invokes native token-based revocation |
+| `POST /revoke-other-sessions` | Keeps current session, deletes other own sessions |
+| `POST /revoke-sessions` | Deletes all own sessions, including the initiating session |
+
+Unknown/foreign IDs on single revocation receive the same harmless success response;
+raw-token management requests are rejected. Native session listing retains its
+one-day fresh-session prerequisite, which can require signing in again. This is a
+library endpoint restriction, not implementation of privileged assurance or step-up.
+After hooks strip reusable credentials from login/current-session/list JSON and
+mark responses `no-store`; browsers receive credentials only in HttpOnly cookies.
+Session IDs remain non-secret management references. Native revocation performs
+the database deletion and user scoping, with cross-user tests for every operation.
+
+Mobile 30/90-day policy needs trusted server-side client classification and remains
+deferred; a submitted client label cannot extend web lifetimes. Privileged elevation
+and critical step-up are also deferred, as are client login/session-management UIs.
 
 Session information should support:
 

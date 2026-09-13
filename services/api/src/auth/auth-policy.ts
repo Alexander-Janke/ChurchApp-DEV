@@ -1,10 +1,21 @@
 import { Logger } from "@nestjs/common";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import type { AuthEmailSender } from "./auth-email.js";
+import { enforceSessionPolicy } from "./auth-session-hooks.js";
+import type { AuthSessionPolicy } from "./auth-session-policy.js";
 
 const SIGNUP_FIELDS = new Set(["name", "email", "password", "callbackURL"]);
+const SIGNIN_FIELDS = new Set([
+  "email",
+  "password",
+  "callbackURL",
+  "rememberMe",
+]);
 
-export function createAuthPolicy(emailSender: AuthEmailSender) {
+export function createAuthPolicy(
+  emailSender: AuthEmailSender,
+  sessionPolicy: AuthSessionPolicy,
+) {
   return createAuthMiddleware(async (ctx) => {
     if (ctx.path === "/sign-up/email") {
       const body: unknown = ctx.body;
@@ -18,6 +29,21 @@ export function createAuthPolicy(emailSender: AuthEmailSender) {
         throw new APIError("BAD_REQUEST", {
           code: "UNSUPPORTED_SIGNUP_FIELDS",
           message: "Registration contains unsupported fields",
+        });
+      }
+    }
+
+    if (ctx.path === "/sign-in/email") {
+      const body: unknown = ctx.body;
+      if (
+        !body ||
+        typeof body !== "object" ||
+        Array.isArray(body) ||
+        Object.keys(body).some((key) => !SIGNIN_FIELDS.has(key))
+      ) {
+        throw new APIError("BAD_REQUEST", {
+          code: "UNSUPPORTED_SIGNIN_FIELDS",
+          message: "Sign-in contains unsupported fields",
         });
       }
     }
@@ -36,6 +62,7 @@ export function createAuthPolicy(emailSender: AuthEmailSender) {
         });
       }
     }
+    return enforceSessionPolicy(ctx, sessionPolicy);
   });
 }
 

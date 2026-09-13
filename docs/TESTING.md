@@ -255,6 +255,25 @@ Verification JWTs are not sessions; explicit sign-in persists an opaque PostgreS
 session. Fast tests also cover unavailable production delivery,
 test-only capture restrictions, configuration and sanitized diagnostics.
 
+Task 1.4 adds disposable-PostgreSQL session tests through the actual Nest/Better Auth
+HTTP boundary: verified/unverified/incorrect/malformed login, opaque database
+credentials, safe JSON and cookie attributes, current/missing/revoked sessions,
+logout deletion (including simulated deletion failure), concurrent sessions, own
+session listing, and single/other/all revocation with cross-user isolation. Single
+revocation uses a non-secret `sessionId`; raw-token requests are rejected. Stored
+tokens and cookies stay in test memory and sensitive assertions use booleans.
+The earlier verification/sign-in regression now checks the credential in PostgreSQL
+and the cookie rather than requiring its unsafe presence in browser JSON.
+
+Controlled clocks test just-before/exactly-at/just-after 30 days, inactivity expiry,
+sliding refresh without creation-time changes, expired list filtering, and server
+API as well as HTTP enforcement. SQL fixtures explicitly interpret canonical
+timestamp-without-time-zone values as UTC, independent of the Windows host zone.
+Fast tests cover policy boundaries, configuration, cookie attributes (including
+production), and protected sign-in fields. The pinned schema generator must still
+match Task 1.2; no session columns or migrations are added. Mobile, privileged
+elevation and step-up tests become mandatory with those future implementations.
+
 Fast API tests check Better Auth's default schema validation without database I/O.
 This checks Drizzle metadata, not PostgreSQL catalogs; the real integration tests
 cover the physical schema. Existing health/auth-route and JSON parsing tests remain

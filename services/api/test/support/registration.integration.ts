@@ -266,11 +266,13 @@ export function registrationIntegrationTests() {
       await signup().expect(200);
       await verify().expect(302);
       const response = await signin().expect(200);
-      expect(
-        typeof response.body.token === "string" &&
-          response.body.token.length > 0,
-      ).toBe(true);
-      expect(response.body.token.split(".").length === 1).toBe(true);
+      // The browser receives the credential only through its HttpOnly cookie.
+      const token = (
+        await pool.query<{ token: string }>('SELECT token FROM "session"')
+      ).rows[0]!.token;
+      expect(token.length > 0 && token.split(".").length === 1).toBe(true);
+      expect(response.body.token).toBeUndefined();
+      expect(Boolean(response.headers["set-cookie"])).toBe(true);
       expect(response.body.user.emailVerified).toBe(true);
       expect(await count("session")).toBe(1);
       expect(response.text.includes(fixture.password)).toBe(false);
