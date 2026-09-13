@@ -1,0 +1,15 @@
+{
+  "name": "@church-platform/e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "install:browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.0",
+    "@types/node": "24.10.1",
+    "typescript": "6.0.2"
+  }
+}

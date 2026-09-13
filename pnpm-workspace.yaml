@@ -2,6 +2,7 @@ packages:
   - "apps/*"
   - "services/*"
   - "packages/*"
+  - "tests/*"
 
 # Keep install artifacts local; these directories are already ignored by Git.
 storeDir: .pnpm-store

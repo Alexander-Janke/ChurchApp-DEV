@@ -19,6 +19,10 @@ coverage/
 /apps/*/dist/
 /services/*/dist/
 /packages/*/dist/
+
+# Playwright test artifacts; E2E source and configuration remain trackable.
+/tests/e2e/playwright-report/
+/tests/e2e/test-results/
 *.log
 
 # Dart / Flutter tooling and generated platform data.

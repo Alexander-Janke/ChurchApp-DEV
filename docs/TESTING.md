@@ -1070,6 +1070,11 @@ End-to-end tests should cover critical user journeys.
 
 They should not attempt to test every combination.
 
+The initial browser/API foundation lives in `tests/e2e` and uses Playwright
+with Chromium. It currently verifies only the main web shell, platform-admin
+shell, and API health endpoint on local ports 3000, 3002, and 3001. It does not
+require PostgreSQL and will expand alongside implemented product workflows.
+
 Initial critical E2E scenarios should eventually include:
 
 1. user registration and login

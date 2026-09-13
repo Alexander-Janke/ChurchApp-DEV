@@ -294,7 +294,8 @@ pnpm web:start
 
 Open `http://localhost:3000`. Build before using `web:start`. Typecheck generates
 Next.js route types before checking source and tests. Vitest, React Testing Library
-and jsdom cover the synchronous root page; E2E tooling remains deferred.
+and jsdom cover the synchronous root page; the initial browser/API checks live in
+`tests/e2e`.
 The shell uses plain CSS, system light/dark preference and English copy isolated
 in `src/i18n/en.ts`. Locale routing and German/Portuguese translations remain for
 the localization foundation; no language preference or account functionality exists.
@@ -312,6 +313,22 @@ Web ESLint uses Next's recommended rules with ESLint 9 because its current plugi
 peers exclude ESLint 10. ESLint 9 is marked unsupported upstream; upgrade when
 Next's plugin dependencies support ESLint 10. The `unrs-resolver` fallback install
 hook is explicitly disabled; packaged native bindings passed local lint validation.
+
+## End-to-End Tests
+
+`tests/e2e` contains the Playwright foundation for the current web, admin, and
+API shells. It uses Chromium only and starts the local apps on Web `3000`, API
+`3001`, and Platform Admin `3002`; the API health check uses a syntactically
+valid test URL and does not require PostgreSQL. From the repository root:
+
+```sh
+pnpm e2e:install
+pnpm e2e:typecheck
+pnpm e2e:test
+```
+
+The initial suite verifies the two development shells and `GET /api/v1/health`.
+Authentication and product workflows will be added as those features are implemented.
 
 ## Platform Admin Shell
 

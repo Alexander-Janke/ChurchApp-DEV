@@ -6,8 +6,8 @@
     "node": ">=24.19.0 <25"
   },
   "scripts": {
-    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\" \"apps/web/**/*.{ts,tsx,mjs,json,css}\" \"apps/admin/**/*.{ts,tsx,mjs,json,css}\" \"packages/**/*.{ts,mts,json}\"",
-    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\" \"apps/web/**/*.{ts,tsx,mjs,json,css}\" \"apps/admin/**/*.{ts,tsx,mjs,json,css}\" \"packages/**/*.{ts,mts,json}\"",
+    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\" \"apps/web/**/*.{ts,tsx,mjs,json,css}\" \"apps/admin/**/*.{ts,tsx,mjs,json,css}\" \"packages/**/*.{ts,mts,json}\" \"tests/e2e/**/*.{ts,mts,json}\"",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\" \"apps/web/**/*.{ts,tsx,mjs,json,css}\" \"apps/admin/**/*.{ts,tsx,mjs,json,css}\" \"packages/**/*.{ts,mts,json}\" \"tests/e2e/**/*.{ts,mts,json}\"",
     "db:up": "docker compose -f infrastructure/docker/compose.dev.yml up -d",
     "db:down": "docker compose -f infrastructure/docker/compose.dev.yml down",
     "db:logs": "docker compose -f infrastructure/docker/compose.dev.yml logs --follow postgres",
@@ -24,6 +24,9 @@
     "contracts:build": "pnpm --filter @church-platform/contracts build",
     "contracts:typecheck": "pnpm --filter @church-platform/contracts typecheck",
     "contracts:test": "pnpm --filter @church-platform/contracts test",
+    "e2e:test": "pnpm --filter @church-platform/e2e test",
+    "e2e:typecheck": "pnpm --filter @church-platform/e2e typecheck",
+    "e2e:install": "pnpm --filter @church-platform/e2e install:browsers",
     "web:dev": "pnpm --filter @church-platform/web dev",
     "web:build": "pnpm --filter @church-platform/web build",
     "web:start": "pnpm --filter @church-platform/web start",
