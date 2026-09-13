@@ -6,8 +6,8 @@
     "node": ">=24.19.0 <25"
   },
   "scripts": {
-    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\" \"apps/web/**/*.{ts,tsx,mjs,json,css}\"",
-    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\" \"apps/web/**/*.{ts,tsx,mjs,json,css}\"",
+    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\" \"apps/web/**/*.{ts,tsx,mjs,json,css}\" \"apps/admin/**/*.{ts,tsx,mjs,json,css}\"",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\" \"apps/web/**/*.{ts,tsx,mjs,json,css}\" \"apps/admin/**/*.{ts,tsx,mjs,json,css}\"",
     "db:up": "docker compose -f infrastructure/docker/compose.dev.yml up -d",
     "db:down": "docker compose -f infrastructure/docker/compose.dev.yml down",
     "db:logs": "docker compose -f infrastructure/docker/compose.dev.yml logs --follow postgres",
@@ -26,7 +26,13 @@
     "web:start": "pnpm --filter @church-platform/web start",
     "web:typecheck": "pnpm --filter @church-platform/web typecheck",
     "web:test": "pnpm --filter @church-platform/web test",
-    "web:lint": "pnpm --filter @church-platform/web lint"
+    "web:lint": "pnpm --filter @church-platform/web lint",
+    "admin:dev": "pnpm --filter @church-platform/admin dev",
+    "admin:build": "pnpm --filter @church-platform/admin build",
+    "admin:start": "pnpm --filter @church-platform/admin start",
+    "admin:typecheck": "pnpm --filter @church-platform/admin typecheck",
+    "admin:test": "pnpm --filter @church-platform/admin test",
+    "admin:lint": "pnpm --filter @church-platform/admin lint"
   },
   "devDependencies": {
     "prettier": "3.9.6"

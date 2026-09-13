@@ -296,3 +296,23 @@ Web ESLint uses Next's recommended rules with ESLint 9 because its current plugi
 peers exclude ESLint 10. ESLint 9 is marked unsupported upstream; upgrade when
 Next's plugin dependencies support ESLint 10. The `unrs-resolver` fallback install
 hook is explicitly disabled; packaged native bindings passed local lint validation.
+
+## Platform Admin Shell
+
+`apps/admin` is the private `@church-platform/admin` Next.js App Router workspace.
+It is an independent shell for future platform-level administration and currently
+contains no authentication, authorization, API integration or administrative features.
+From the repository root:
+
+```sh
+pnpm admin:dev
+pnpm admin:typecheck
+pnpm admin:test
+pnpm admin:lint
+pnpm admin:build
+pnpm admin:start
+```
+
+Open `http://localhost:3002`. The local three-app convention is Web `3000`, API
+`3001` when run alongside the web apps, and Platform Admin `3002`. The API's own
+default remains `3000`; set `PORT=3001` when running all three together.
