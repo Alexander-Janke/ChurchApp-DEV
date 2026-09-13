@@ -6,8 +6,12 @@
     "node": ">=24.19.0 <25"
   },
   "scripts": {
-    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md",
-    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md"
+    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml",
+    "db:up": "docker compose -f infrastructure/docker/compose.dev.yml up -d",
+    "db:down": "docker compose -f infrastructure/docker/compose.dev.yml down",
+    "db:logs": "docker compose -f infrastructure/docker/compose.dev.yml logs --follow postgres",
+    "db:status": "docker compose -f infrastructure/docker/compose.dev.yml ps"
   },
   "devDependencies": {
     "prettier": "3.9.6"

@@ -132,4 +132,47 @@ real source packages exist; there are no placeholder success commands.
 The only root development dependency is Prettier. Commit `pnpm-lock.yaml` with
 intentional dependency changes, and use frozen installs for reproducibility.
 pnpm's store/cache/state stay in Git-ignored local directories. Environment
-files remain unchanged; never commit real credentials.
+files must remain local; never commit real credentials.
+
+## Local PostgreSQL Development
+
+Requires Docker Desktop running Linux containers (WSL2 on Windows), with Docker
+and Compose available in the host terminal. Run commands from the repository root:
+
+```sh
+pnpm db:up
+pnpm db:status
+pnpm db:logs
+pnpm db:down
+```
+
+These scripts use `infrastructure/docker/compose.dev.yml`. Logs follow the service;
+Ctrl+C ends log viewing. `db:down` stops/removes the container but retains its volume.
+No automatic restart is configured; start it explicitly when needed.
+
+The image is `postgres:18.6`. Defaults are host `localhost`, port `5432`, database
+`church_platform_dev`, user `church_dev`, and public development-only password
+`local_dev_only`. The published port binds only to `127.0.0.1`. `.env.example`
+contains matching local examples, including the host-based `DATABASE_URL`; never
+reuse these credentials for staging/production or use production data locally.
+
+No `.env` is needed for defaults. Override values through the host environment or
+an optional Git-ignored root `.env`. Check host port availability before starting;
+if occupied, set `POSTGRES_PORT=5433` and update your local `DATABASE_URL` port.
+Changing `DATABASE_URL` alone does not configure the container. Future containers
+on the same network will use `postgres:5432` instead of `localhost`.
+
+Compose project `church-platform-dev` manages named volume
+`church-platform-dev_postgres_data`, mounted at `/var/lib/postgresql` for
+PostgreSQL 18. Data stays in Docker-managed storage outside this repository.
+Initialization values apply only to an empty volume; changing environment values
+does not rename an existing database/user or reset its password.
+
+Only standard image initialization is configured. The bootstrap user is a local
+superuser, not the future runtime API identity. Restricted roles, RLS, application
+schemas and migrations will be introduced later under ADRs 0002/0006.
+
+Runtime validation must run in Windows PowerShell (or another host terminal with
+Docker access): Compose configuration, image pull/startup, healthy status, server
+version 18.6, database/user SQL queries, published-port reachability, and persistence
+across restart with the same volume. These checks have not run inside Codex.
