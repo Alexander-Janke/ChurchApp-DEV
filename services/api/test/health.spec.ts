@@ -1,3 +1,5 @@
+import { Pool } from "pg";
+import { DATABASE_POOL } from "../src/database/database.constants.js";
 import "reflect-metadata";
 import { Test } from "@nestjs/testing";
 import type { NestExpressApplication } from "@nestjs/platform-express";
@@ -12,7 +14,10 @@ describe("API shell", () => {
   beforeAll(async () => {
     const module = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(DATABASE_POOL)
+      .useValue(new Pool())
+      .compile();
     app = module.createNestApplication<NestExpressApplication>();
     configureApp(app);
     await app.init();

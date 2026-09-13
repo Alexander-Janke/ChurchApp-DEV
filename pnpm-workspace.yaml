@@ -8,6 +8,7 @@ storeDir: .pnpm-store
 cacheDir: .cache/pnpm
 stateDir: .cache/pnpm-state
 
-# Native compiler used by the NestJS Vitest transform.
+# Native compiler hooks for the Vitest transform and Drizzle Kit.
 allowBuilds:
   "@swc/core": true
+  esbuild: true

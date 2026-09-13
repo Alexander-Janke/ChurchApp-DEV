@@ -5,8 +5,12 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main.js",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "test": "vitest run --exclude test/database.integration.spec.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config drizzle.config.ts",
+    "db:check": "drizzle-kit check --config drizzle.config.ts",
+    "test:db": "vitest run test/database.integration.spec.ts"
   },
   "dependencies": {
     "@nestjs/common": "12.0.1",
@@ -15,7 +19,9 @@
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",
     "reflect-metadata": "0.2.2",
-    "rxjs": "7.8.2"
+    "rxjs": "7.8.2",
+    "pg": "8.23.0",
+    "drizzle-orm": "0.45.2"
   },
   "devDependencies": {
     "@nestjs/cli": "12.0.0",
@@ -27,7 +33,9 @@
     "typescript": "6.0.2",
     "unplugin-swc": "1.6.0",
     "vitest": "5.0.0",
-    "@types/express": "5.0.6"
+    "@types/express": "5.0.6",
+    "@types/pg": "8.23.1",
+    "drizzle-kit": "0.31.10"
   },
   "type": "module"
 }

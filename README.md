@@ -198,8 +198,66 @@ Shutdown hooks handle termination; global DTO validation transforms inputs and
 rejects non-whitelisted properties without exposing validation values/details.
 
 Tests use Vitest, Nest testing utilities, and Supertest. SWC preserves decorator
-metadata in tests; pnpm permits only its native-compiler install hook. The API
+metadata in tests; pnpm permits the SWC and Drizzle Kit esbuild install hooks only. The API
 uses ESM/NodeNext and TypeScript 6 to match Nest CLI tooling. Strict source and
 test checking remains enabled; API-local `skipLibCheck` excludes third-party
-library declarations with optional bundler types. Authentication, database
-integration, tenant authorization, and business modules are intentionally absent.
+library declarations with optional bundler types. Authentication, tenant authorization,
+and business modules are intentionally absent.
+
+## Database Foundation
+
+The API requires `DATABASE_URL` in its launching environment and fails at startup
+if it is missing or malformed. Neither the API nor Drizzle Kit automatically loads
+`.env`. For the public local defaults, run from the repository root in PowerShell:
+
+```powershell
+pnpm db:up
+$env:DATABASE_URL = (Get-Content .env.example | Where-Object { $_ -match '^DATABASE_URL=' }) -replace '^DATABASE_URL=', ''
+pnpm api:dev
+```
+
+If local credentials/ports differ, set the matching URL in your shell instead.
+Never use production credentials/data for local development. The current local
+bootstrap superuser is suitable only for this empty foundation; separate migration
+and restricted runtime roles are required before implementing tenant tables/RLS.
+Basic `/api/v1/health` stays a liveness check and never queries the database.
+
+The non-global Nest `DatabaseModule` owns one `pg.Pool` (maximum 10 clients,
+5-second connection timeout, 30-second idle timeout) and closes it on shutdown.
+Its `DatabaseService` provides typed Drizzle access for infrastructure and future
+module-owned repositories, not direct controller access. `transaction()` borrows
+one client and uses Drizzle for commit/rollback, with guaranteed release even on
+BEGIN failure. All operations in an atomic use case must use the callback's
+transaction handle; never fall back to `db` or another connection inside it.
+`withClient()` is a bounded infrastructure escape hatch, not a tenant bypass.
+Trusted tenant context and transaction-local RLS remain required future work
+before the first tenant-owned tables, per ADR 0006.
+
+The canonical schema is `services/api/src/database/schema/index.ts`, intentionally
+empty. Drizzle Kit reads `services/api/drizzle.config.ts`; reviewed SQL and its
+snapshots will live under `services/api/migrations`. Drizzle Kit initializes an empty
+migration journal; no SQL migration is needed yet.
+After a future schema change, with `DATABASE_URL` set:
+
+```sh
+pnpm db:generate
+# Review the generated SQL and snapshots before applying; commit both together.
+pnpm db:check
+pnpm db:migrate
+```
+
+`db:check` checks migration snapshot consistency, not live database drift or proof
+that every schema edit has a migration. Production uses reviewed migrations in one
+controlled deployment step, never automatic synchronization or `drizzle-kit push`.
+Use separate migration credentials there; plan risky changes and rollback per ADR 0002.
+
+Fast tests require no PostgreSQL. The separate integration suite requires the
+local database and `DATABASE_URL` set as above; it verifies real connections,
+server version, transaction commit/rollback and release without creating tables:
+
+```sh
+pnpm api:test
+pnpm api:test:db
+pnpm api:typecheck
+pnpm api:build
+```
