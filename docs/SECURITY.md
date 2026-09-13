@@ -99,8 +99,52 @@ remains behind AuthModule and application-owned account/security authorization.
 Their presence does not grant church administrators access to identities, sessions,
 or provider credentials. The generator owns library field definitions; reviewed
 application Drizzle migrations own deployment. Default schema validation is enabled
-and startup never migrates the database. Task 1.2 enables no signup/login or linking
-flow and does not change the PostgreSQL-backed opaque-session architecture.
+and startup never migrates the database. Task 1.3 enables backend email/password
+registration and requires verification before password sign-in. Linking and other
+authentication workflows remain deferred; sessions remain PostgreSQL-backed opaque
+credentials.
+
+Signup and email verification both disable automatic sign-in. Verification links
+expire after one hour. Better Auth's trusted-origin checks remain explicitly active,
+including in tests, to reject unsafe callback destinations. Unknown/protected signup
+fields are rejected by an application hook. Better Auth lowercases email addresses;
+duplicate signup returns HTTP 200 with a synthetic user and null token instead of
+disclosing the stored identity. No custom email normalization is applied.
+
+Email delivery is application-owned and provider-neutral. Without a configured
+transport, signup and resend fail before database writes; production never uses a
+no-op sender. The in-memory capture implementation exists only in test code and
+rejects non-test use. Library diagnostic messages are reduced to fixed error/warning
+messages so submitted URLs, credentials and database details are not logged. Future
+auditing must add deliberate, sanitized event metadata rather than raw library logs.
+
+Accepted native Better Auth 1.7.4 email-verification links use short-lived,
+JWT-formatted tokens signed with Better Auth's secret and containing the email
+claim. Signature and expiry are checked server-side. This flow does not persist,
+consume or delete a verification-token database record; the canonical `verification`
+table is retained unchanged. Revisiting a still-valid link after verification is
+idempotent: no additional user/account or authenticated session is created, and no
+privilege, tenant or role state changes. Verification only changes email ownership
+state. These tokens are not authentication sessions: normal sessions remain opaque
+server-side PostgreSQL sessions, with no JWT session/access/refresh architecture or
+JWT plugin.
+
+Stateless signed verification links cannot be individually revoked or consumed
+server-side before expiry. The current mitigations are one-hour expiry, a strong
+Better Auth secret, trusted callback/origin validation, no automatic authenticated
+session after verification, and limiting verification to email ownership state.
+This has residual replay risk. Individually revocable or strictly one-time links
+would require a deliberate application-owned verification mechanism and a separate
+architecture decision; no such mechanism is implemented now. Production access
+logs must also redact verification URL queries when email transport/deployment is
+introduced.
+
+Better Auth's built-in limiter remains at its defaults: production-only, in-memory,
+100 requests per 10 seconds generally, 3 per 10 seconds for signup/sign-in, and 3 per
+60 seconds for verification-email requests. Tests/development do not enable it by
+default. Configure trusted client-IP/proxy handling before public deployment;
+without a trusted IP it falls back to a shared per-path bucket. Multi-instance
+coordination and complete abuse protection remain future work; no Redis is added.
 
 Supported initial methods:
 
@@ -140,6 +184,12 @@ Do not use:
 - reversible encryption for password storage
 
 Password verification must use the same secure password hashing system.
+
+Task 1.3 explicitly retains Better Auth 1.7.4's built-in scrypt hashing: the Node
+implementation uses N=16384, r=16, p=1, a random 16-byte salt and a 64-byte key, with
+NFKC password normalization. Only the salted hash is stored in `account.password`.
+The configured password length is 12–128 characters, without composition rules.
+No algorithm switch or hashing dependency is introduced in this task.
 
 ---
 

@@ -15,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { DATABASE_POOL } from "../src/database/database.constants.js";
 import { DatabaseModule } from "../src/database/database.module.js";
 import { DatabaseService } from "../src/database/database.service.js";
+import { registrationIntegrationTests } from "./support/registration.integration.js";
 
 describe("real PostgreSQL foundation", () => {
   let module: TestingModule;
@@ -75,6 +76,8 @@ describe("real PostgreSQL foundation", () => {
     expect(pool.waitingCount).toBe(0);
   });
 });
+
+registrationIntegrationTests();
 
 // A unique database keeps migration/constraint tests away from existing local data.
 // The configured test role needs CREATEDB; it is not a production runtime role.

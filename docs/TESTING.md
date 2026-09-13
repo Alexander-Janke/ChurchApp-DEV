@@ -235,9 +235,25 @@ created from `template0`, using the configured local/CI PostgreSQL server. The
 credentials. Tests migrate through Drizzle's migration runner, repeat migration,
 start AuthModule with default schema validation, query all four models through the
 real Better Auth adapter, and verify unique email/token constraints, lookup indexes,
-foreign keys and cascading deletion. Synthetic constraint fixtures are rolled back;
-no verification records or complete signup/login flows are created. Cleanup drops
-only the uniquely generated database, never the database named in `DATABASE_URL`.
+foreign keys and cascading deletion. Synthetic constraint fixtures are rolled back.
+Cleanup drops only the uniquely generated database, never the database named in
+`DATABASE_URL`.
+
+Task 1.3 adds a separate disposable database for canonical registration/verification
+HTTP tests using a test-only in-memory email sender. Coverage includes credential
+account/hash storage, email case normalization and duplicate responses, protected
+fields, password limits, safe callbacks, absent pre-verification sessions, rejected
+unverified sign-in, generated-link verification, invalid/expired links, and explicit
+verified sign-in. Captured messages are reset between tests and never written to
+disk; hash/credential assertions avoid printing their values. Native verification
+tests assert the accepted Better Auth 1.7.4 semantics: no verification-table row is
+required, invalid signatures and expired tokens fail, first use verifies the email,
+and repeat use is idempotent without duplicate users/accounts, other identity-state
+changes or sessions. No tenant/role/permission state exists in this foundation.
+Do not require database token consumption or strict failure on a second valid use.
+Verification JWTs are not sessions; explicit sign-in persists an opaque PostgreSQL
+session. Fast tests also cover unavailable production delivery,
+test-only capture restrictions, configuration and sanitized diagnostics.
 
 Fast API tests check Better Auth's default schema validation without database I/O.
 This checks Drizzle metadata, not PostgreSQL catalogs; the real integration tests

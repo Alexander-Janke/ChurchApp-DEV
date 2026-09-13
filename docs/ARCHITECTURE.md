@@ -516,7 +516,34 @@ Better Auth 1.7.4 rejects ambiguous identity lookups at runtime. Review concurre
 and provider identity integrity before enabling account-creation/linking flows;
 do not assume database-enforced provider uniqueness. Generated timestamps are
 without time zone, and `$onUpdate` is Drizzle behavior, not a database trigger.
-Signup, login and the remaining authentication flows are still deferred.
+Task 1.3 enables canonical backend email/password registration at
+`POST /api/v1/auth/sign-up/email`, with email verification required before password
+sign-in. Signup accepts `name`, `email`, `password`, and optional `callbackURL`;
+an application-owned Better Auth hook rejects other fields before database writes.
+No custom signup controller or schema fields are introduced.
+
+`AuthEmailSender` is the provider-neutral verification-delivery port, injected into
+the single AuthModule-owned Better Auth instance. The default unavailable sender
+rejects signup and verification-email requests with HTTP 503 before database writes,
+including in development and production. Local automated tests explicitly inject
+`TestAuthEmailSender`, which captures messages only in test-process memory and can
+be reset. No production provider, console-email transport, or token file exists.
+Manual development signup awaits a safe delivery implementation.
+
+Accepted for Task 1.3: Better Auth 1.7.4 uses signed, short-lived JWT-formatted
+email-verification links. The token contains the email claim and is signed with
+Better Auth's secret; signature and expiry are verified server-side. This flow
+neither stores nor consumes a `verification`-table record. Repeat still-valid links
+for an already verified email return safe, idempotent success. The canonical
+`verification` table remains unchanged for other Better Auth verification flows.
+No custom verification mechanism is added.
+
+Verification tokens are not authentication sessions and do not violate ADR 0003:
+normal application sessions remain opaque server-side PostgreSQL sessions. No JWT
+session/access-token/refresh-token architecture or JWT plugin is used. Signup and
+verification do not auto-sign-in.
+Frontend signup/login, final session policy, and other authentication flows remain
+deferred. The pinned generator produces the unchanged Task 1.2 schema.
 
 ---
 

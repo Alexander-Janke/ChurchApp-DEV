@@ -3,6 +3,8 @@ import { betterAuth } from "better-auth";
 import type { Database } from "../database/database.types.js";
 import * as authSchema from "../database/schema/auth.js";
 import { BETTER_AUTH_BASE_PATH } from "./auth.constants.js";
+import { AuthEmailSender, UnavailableAuthEmailSender } from "./auth-email.js";
+import { createAuthLogger, createAuthPolicy } from "./auth-policy.js";
 
 const MIN_SECRET_LENGTH = 32;
 
@@ -53,7 +55,15 @@ export function getBetterAuthUrl(value = process.env.BETTER_AUTH_URL): string {
   return url.toString().replace(/\/$/, "");
 }
 
-export function createBetterAuth(database: Database) {
+export function createBetterAuth(
+  database: Database,
+  emailSender: AuthEmailSender = new UnavailableAuthEmailSender(),
+) {
+  if (emailSender.mode === "test" && process.env.NODE_ENV !== "test") {
+    throw new AuthConfigurationError(
+      "Test email delivery requires NODE_ENV=test",
+    );
+  }
   // Better Auth's default 2FA challenge covers credential sign-in but does not
   // automatically gate OAuth/social authentication; privileged assurance will
   // remain an application-owned check when those providers are added.
@@ -62,5 +72,33 @@ export function createBetterAuth(database: Database) {
     basePath: BETTER_AUTH_BASE_PATH,
     secret: getBetterAuthSecret(),
     database: drizzleAdapter(database, { provider: "pg", schema: authSchema }),
+    emailAndPassword: {
+      enabled: true,
+      requireEmailVerification: true,
+      minPasswordLength: 12,
+      maxPasswordLength: 128,
+      autoSignIn: false,
+    },
+    emailVerification: {
+      sendOnSignUp: true,
+      sendOnSignIn: false,
+      expiresIn: 3600,
+      autoSignInAfterVerification: false,
+      sendVerificationEmail: async ({ user, url, token }) => {
+        try {
+          await emailSender.sendEmailVerification({
+            recipient: user.email,
+            url,
+            token,
+          });
+        } catch {
+          // Better Auth may log delivery failures through its background helper.
+          throw new Error("Authentication email delivery failed");
+        }
+      },
+    },
+    advanced: { disableOriginCheck: false, disableCSRFCheck: false },
+    hooks: { before: createAuthPolicy(emailSender) },
+    logger: createAuthLogger(),
   });
 }
