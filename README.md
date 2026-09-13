@@ -114,20 +114,19 @@ pnpm install --frozen-lockfile
 pnpm format:check
 ```
 
-Use `pnpm format` to format the root foundation files and this README. Existing
+Use `pnpm format` to format the foundation files, API workspace, and this README. Existing
 architecture documents are not reformatted by these scripts. Expand formatting
 coverage as source packages are introduced. Prettier uses the shared
 `.editorconfig` defaults; its generated lockfile is not manually formatted.
 
 pnpm discovers actual package manifests under `apps/*`, `services/*`, and
 `packages/*`. Flutter remains a separate Dart project under `apps/mobile` and
-needs no Node package manifest. The current directories remain placeholders.
+needs no Node package manifest. Only the API workspace is implemented; other application directories remain placeholders.
 No additional monorepo orchestrator is required.
 
 `tsconfig.base.json` shares strictness and casing checks only. Application
 configs will choose their own module resolution, target, JSX, and output settings.
-TypeScript tooling, ESLint, build, typecheck, and test scripts are deferred until
-real source packages exist; there are no placeholder success commands.
+The API owns its TypeScript/build/test tooling. ESLint remains deferred; no lint script is claimed.
 
 The only root development dependency is Prettier. Commit `pnpm-lock.yaml` with
 intentional dependency changes, and use frozen installs for reproducibility.
@@ -176,3 +175,31 @@ Runtime validation must run in Windows PowerShell (or another host terminal with
 Docker access): Compose configuration, image pull/startup, healthy status, server
 version 18.6, database/user SQL queries, published-port reachability, and persistence
 across restart with the same volume. These checks have not run inside Codex.
+
+## API Shell
+
+The private `@church-platform/api` workspace lives in `services/api`, using NestJS
+12 with the standard Express adapter. From the repository root:
+
+```sh
+pnpm api:dev
+pnpm api:typecheck
+pnpm api:test
+pnpm api:build
+pnpm api:start
+```
+
+`api:dev` compiles and watches for changes. `api:start` runs the built output;
+build first. The API binds to `0.0.0.0` on `PORT` (default `3000`, valid range
+1–65535). Set `PORT` in the launching environment; `.env` is not loaded by this
+shell. Visit `http://localhost:3000/api/v1/health` for HTTP 200 and `{"status":"ok"}`.
+This endpoint checks service responsiveness only, without PostgreSQL or Docker.
+Shutdown hooks handle termination; global DTO validation transforms inputs and
+rejects non-whitelisted properties without exposing validation values/details.
+
+Tests use Vitest, Nest testing utilities, and Supertest. SWC preserves decorator
+metadata in tests; pnpm permits only its native-compiler install hook. The API
+uses ESM/NodeNext and TypeScript 6 to match Nest CLI tooling. Strict source and
+test checking remains enabled; API-local `skipLibCheck` excludes third-party
+library declarations with optional bundler types. Authentication, database
+integration, tenant authorization, and business modules are intentionally absent.

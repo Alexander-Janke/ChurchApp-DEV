@@ -7,3 +7,7 @@ packages:
 storeDir: .pnpm-store
 cacheDir: .cache/pnpm
 stateDir: .cache/pnpm-state
+
+# Native compiler used by the NestJS Vitest transform.
+allowBuilds:
+  "@swc/core": true

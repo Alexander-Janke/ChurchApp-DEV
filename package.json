@@ -6,12 +6,17 @@
     "node": ">=24.19.0 <25"
   },
   "scripts": {
-    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml",
-    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml",
+    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\"",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\"",
     "db:up": "docker compose -f infrastructure/docker/compose.dev.yml up -d",
     "db:down": "docker compose -f infrastructure/docker/compose.dev.yml down",
     "db:logs": "docker compose -f infrastructure/docker/compose.dev.yml logs --follow postgres",
-    "db:status": "docker compose -f infrastructure/docker/compose.dev.yml ps"
+    "db:status": "docker compose -f infrastructure/docker/compose.dev.yml ps",
+    "api:dev": "pnpm --filter @church-platform/api dev",
+    "api:build": "pnpm --filter @church-platform/api build",
+    "api:start": "pnpm --filter @church-platform/api start",
+    "api:test": "pnpm --filter @church-platform/api test",
+    "api:typecheck": "pnpm --filter @church-platform/api typecheck"
   },
   "devDependencies": {
     "prettier": "3.9.6"
