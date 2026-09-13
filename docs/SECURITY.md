@@ -228,6 +228,47 @@ Password reset must not satisfy or disable mandatory privileged 2FA. Audit succe
 
 Do not reveal whether an email address exists in the system through obvious response differences.
 
+Task 1.5 uses native Better Auth password reset: a random opaque token references a
+`verification` record, expires after one hour, and is atomically consumed before
+updating a password. Invalid/expired/consumed tokens fail, including concurrent
+reuse. Successful reset revokes all the user's sessions and never auto-signs in.
+No custom token cryptography or verification table/schema change is introduced.
+Reset cannot implicitly create a local password on an identity without a credential;
+explicit social-account password creation remains deferred.
+
+Authenticated password change requires the current password and a different
+NFKC-normalized new password, using the same native scrypt and 12–128 limits as
+signup/reset. It always revokes other own sessions while preserving the current
+session's original creation time and 30-day limit. Client opt-out is ignored.
+Session tokens remain absent from JSON and diagnostics. Wrong passwords do not
+change credentials or sessions, and other users' accounts/sessions remain isolated.
+
+Delivery availability is checked before account lookup, including for unknown email;
+an unavailable provider yields the same 503 independently of account existence.
+With delivery configured, native generic reset status/body are identical for known
+and unknown accounts. Mail delivery is tracked asynchronously, never awaited only
+for the known-account HTTP path. Errors are logged without recipient, URL, token or
+provider details and pending work is drained on graceful shutdown. Native dummy
+lookup reduces database timing differences but is not a constant-time guarantee;
+this does not claim complete elimination of statistical timing side channels.
+No durable queue or production provider is implemented. Provider timeouts, crash
+recovery and operational alerting must be addressed before public mail deployment.
+
+Password changes/recovery updates emit security events containing only necessary
+internal identifiers and outcomes, and dispatch a distinct password-change notice.
+No passwords, hashes or recovery/session credentials enter those events. Native
+reset invokes the notice after password update but before all-session deletion;
+failed revocation is an error, not a completed-reset success. Password/token/session
+changes are not one transaction; partial failures require explicit recovery.
+
+The unchanged production in-memory limiter allows 3 password changes per 10 seconds,
+3 reset requests per 60 seconds, and the general 100 requests per 10 seconds for
+reset completion. It is not distributed. Origin/CSRF checks remain enabled. The
+native reset callback necessarily carries the token in its URL and trusted redirect;
+deployment access logs must redact both path/query credentials, and future reset UI
+must avoid third-party content and token persistence. No reset token is returned in
+ordinary JSON, application logs or diagnostics.
+
 ---
 
 # 7. Email Address Changes

@@ -11,6 +11,13 @@ import {
   WEB_SESSION_UPDATE_AGE,
 } from "./auth-session-policy.js";
 import { createSessionResponsePolicy } from "./auth-session-hooks.js";
+import {
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_RESET_EXPIRES_IN,
+} from "./auth-password-policy.js";
+import { Logger } from "@nestjs/common";
+import { APIError } from "better-auth/api";
 
 const MIN_SECRET_LENGTH = 32;
 
@@ -82,9 +89,48 @@ export function createBetterAuth(
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
-      minPasswordLength: 12,
-      maxPasswordLength: 128,
+      minPasswordLength: PASSWORD_MIN_LENGTH,
+      maxPasswordLength: PASSWORD_MAX_LENGTH,
       autoSignIn: false,
+      resetPasswordTokenExpiresIn: PASSWORD_RESET_EXPIRES_IN,
+      revokeSessionsOnPasswordReset: true,
+      sendResetPassword: async ({ user, url, token }) => {
+        // Delivery latency must not hold up only the existing-account response.
+        emailSender.dispatchPasswordReset({
+          recipient: user.email,
+          url,
+          token,
+        });
+      },
+      onPasswordReset: async ({ user }) => {
+        new Logger("AuthModule").log({
+          event: "password_updated_by_recovery",
+          userId: user.id,
+        });
+        emailSender.dispatchPasswordChanged({
+          recipient: user.email,
+          reason: "reset",
+        });
+      },
+    },
+    databaseHooks: {
+      account: {
+        create: {
+          before: async (account, ctx) => {
+            // Only signup creates local credentials. Native reset and server-only
+            // setPassword must not enable deferred social-only password creation.
+            if (
+              account.providerId === "credential" &&
+              ctx?.path !== "/sign-up/email"
+            ) {
+              throw new APIError("BAD_REQUEST", {
+                code: "PASSWORD_CREATION_NOT_ENABLED",
+                message: "Password creation is not enabled for this account",
+              });
+            }
+          },
+        },
+      },
     },
     emailVerification: {
       sendOnSignUp: true,
@@ -119,7 +165,7 @@ export function createBetterAuth(
     },
     hooks: {
       before: createAuthPolicy(emailSender, sessionPolicy),
-      after: createSessionResponsePolicy(sessionPolicy),
+      after: createSessionResponsePolicy(sessionPolicy, emailSender),
     },
     logger: createAuthLogger(),
   });

@@ -274,6 +274,25 @@ production), and protected sign-in fields. The pinned schema generator must stil
 match Task 1.2; no session columns or migrations are added. Mobile, privileged
 elevation and step-up tests become mandatory with those future implementations.
 
+Task 1.5 adds a separate disposable PostgreSQL password suite. It covers native
+current-password checks, 12–128 limits, reuse rejection, forced other-session
+revocation with the initiating creation time preserved, cross-user isolation,
+generic reset responses, trusted callbacks, blocked-provider timing behavior,
+one-hour verification-record lifecycle, invalid/expired/consumed tokens, concurrent
+single-use consumption, all-session revocation, stable user/account counts and
+non-plaintext hashing. It rejects implicit password creation for an identity without
+a credential, including the native server-only set-password API. Injected deletion
+failures must not report success. All prior
+registration/verification/session tests remain mandatory and unchanged.
+
+Fast password tests cover shared configuration, request policy, production sender
+failure, redirect validation, distinct email captures, tracked pending delivery,
+graceful draining and sanitized failure logs. The delayed-sender integration test
+holds delivery unresolved while the HTTP response succeeds; it does not assert
+fragile equal wall-clock durations for database operations. Tokens, hashes and URLs
+stay in process memory and are not snapshotted. The pinned schema comparison must
+remain identical; no new migration is generated.
+
 Fast API tests check Better Auth's default schema validation without database I/O.
 This checks Drizzle metadata, not PostgreSQL catalogs; the real integration tests
 cover the physical schema. Existing health/auth-route and JSON parsing tests remain

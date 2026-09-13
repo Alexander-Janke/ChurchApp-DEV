@@ -1,12 +1,16 @@
 import {
   AuthEmailSender,
   type EmailVerificationMessage,
+  type PasswordResetMessage,
+  type PasswordChangedMessage,
 } from "../../src/auth/auth-email.js";
 
 // Test-only capture: never exported by an application module or selected by env.
 export class TestAuthEmailSender extends AuthEmailSender {
   readonly mode = "test" as const;
   readonly messages: EmailVerificationMessage[] = [];
+  readonly passwordResets: PasswordResetMessage[] = [];
+  readonly passwordChanges: PasswordChangedMessage[] = [];
 
   constructor() {
     super();
@@ -28,5 +32,16 @@ export class TestAuthEmailSender extends AuthEmailSender {
 
   reset(): void {
     this.messages.length = 0;
+    this.passwordResets.length = 0;
+    this.passwordChanges.length = 0;
+  }
+
+  async sendPasswordReset(message: PasswordResetMessage): Promise<void> {
+    this.assertAvailable();
+    this.passwordResets.push({ ...message });
+  }
+  async sendPasswordChanged(message: PasswordChangedMessage): Promise<void> {
+    this.assertAvailable();
+    this.passwordChanges.push({ ...message });
   }
 }

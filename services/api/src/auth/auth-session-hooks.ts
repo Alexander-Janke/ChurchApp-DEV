@@ -2,6 +2,8 @@ import type { GenericEndpointContext, Session } from "better-auth";
 import { APIError, createAuthMiddleware, isAPIError } from "better-auth/api";
 import { deleteSessionCookie } from "better-auth/cookies";
 import type { AuthSessionPolicy } from "./auth-session-policy.js";
+import type { AuthEmailSender } from "./auth-email.js";
+import { completePasswordChange } from "./auth-password-policy.js";
 
 function unavailable(): APIError {
   return new APIError("SERVICE_UNAVAILABLE", {
@@ -77,10 +79,14 @@ function withoutToken<T extends { token: string }>(
   return metadata;
 }
 
-export function createSessionResponsePolicy(policy: AuthSessionPolicy) {
+export function createSessionResponsePolicy(
+  policy: AuthSessionPolicy,
+  emailSender: AuthEmailSender,
+) {
   return createAuthMiddleware(async (ctx) => {
     const returned = ctx.context.returned;
     if (isAPIError(returned)) return;
+    await completePasswordChange(ctx, emailSender);
     // No HTTP cache or ordinary JSON consumer may become session authority.
     ctx.setHeader("cache-control", "no-store");
     ctx.setHeader("pragma", "no-cache");

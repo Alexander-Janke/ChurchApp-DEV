@@ -522,13 +522,17 @@ sign-in. Signup accepts `name`, `email`, `password`, and optional `callbackURL`;
 an application-owned Better Auth hook rejects other fields before database writes.
 No custom signup controller or schema fields are introduced.
 
-`AuthEmailSender` is the provider-neutral verification-delivery port, injected into
+`AuthEmailSender` is the provider-neutral authentication-email port, injected into
 the single AuthModule-owned Better Auth instance. The default unavailable sender
 rejects signup and verification-email requests with HTTP 503 before database writes,
 including in development and production. Local automated tests explicitly inject
 `TestAuthEmailSender`, which captures messages only in test-process memory and can
 be reset. No production provider, console-email transport, or token file exists.
 Manual development signup awaits a safe delivery implementation.
+
+Task 1.5 adds distinct `sendPasswordReset` and `sendPasswordChanged` capabilities
+to that port. The latter supplies the password-security notification required by
+SECURITY.md; no provider SDK or general notification platform is introduced.
 
 Accepted for Task 1.3: Better Auth 1.7.4 uses signed, short-lived JWT-formatted
 email-verification links. The token contains the email claim and is signed with
@@ -609,6 +613,56 @@ Session information should support:
 - revocation
 
 Critical session operations must be server-controlled.
+
+## Password change and recovery foundation (Task 1.5)
+
+All routes remain Better Auth 1.7.4 endpoints under `/api/v1/auth`:
+
+- `POST /change-password`: canonical `currentPassword`, `newPassword`, and optional
+  `revokeOtherSessions`. Native current-password verification and scrypt hashing are
+  retained. All new passwords reuse the shared 12–128 limits. The application rejects
+  identical NFKC-normalized supplied passwords; native Better Auth allows reuse.
+- Native `revokeOtherSessions=true` deletes the initiating session and creates a
+  replacement. The before hook therefore always sets the native flag to false; the
+  success hook mandates user-scoped deletion of all other sessions through Better
+  Auth's adapter, regardless of the client's flag. The initiating ID, cookie and
+  `createdAt` remain unchanged, including its Task 1.4 absolute expiry. This is not
+  privileged elevation. Revocation failure returns an error rather than success.
+- `POST /request-password-reset`: accepts `email` and `redirectTo`, checks delivery
+  availability uniformly before lookup, then uses native generic responses for both
+  existing and unknown email. Trusted-origin validation protects reset destinations.
+- `POST /reset-password`: accepts `token` and `newPassword`, without requiring a
+  session. Native reset consumes a one-hour record in `verification`, updates the
+  existing credential and, with `revokeSessionsOnPasswordReset=true`, deletes all
+  sessions belonging to that user. It does not auto-login. Other users are unaffected.
+
+Reset records use `identifier=reset-password:<opaque token>` and `value=userId`;
+this is distinct from stateless email-verification JWTs. Native atomic consumption
+rejects invalid, expired, sequentially replayed and concurrently reused tokens.
+The GET `/reset-password/:token` callback validates the trusted destination and
+redirects there with the token; it does not consume it. The frontend destination
+remains a placeholder, and its reset UI is not implemented.
+
+Native reset can create a credential for an identity lacking one. An account-create
+hook permits credential creation only during signup, blocking both reset and the
+native server-only `setPassword` entry point: social-only password creation/linking remains
+deferred. No schema, migration, dependency, OAuth or client change is required.
+
+Reset delivery is dispatched without awaiting provider latency in the HTTP request.
+The sender tracks pending promises, catches failures with a fixed sanitized error,
+and drains them on graceful Nest shutdown. This is in-process work, not a durable
+queue: process crashes can lose pending mail. Future providers need bounded I/O and
+operational failure handling. Production/development without a real provider fail
+closed; tests inject distinct in-memory verification/reset/notification captures.
+Password updates emit limited security event metadata and queue a change notice.
+The native reset notification hook runs after the password write, before session
+revocation, so it records an update rather than claiming the whole reset completed.
+
+Native password writes, token consumption and session deletion are not one atomic
+application transaction. A storage failure can leave a changed password with
+incomplete revocation; no successful response is claimed. A consumed reset token is
+not restored: the user must request another recovery link. These failure paths are
+tested; production recovery UX and durable audit delivery remain future work.
 
 Do not store long-lived sensitive credentials insecurely in clients.
 

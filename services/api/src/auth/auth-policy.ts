@@ -3,6 +3,7 @@ import { APIError, createAuthMiddleware } from "better-auth/api";
 import type { AuthEmailSender } from "./auth-email.js";
 import { enforceSessionPolicy } from "./auth-session-hooks.js";
 import type { AuthSessionPolicy } from "./auth-session-policy.js";
+import { enforcePasswordRequest } from "./auth-password-policy.js";
 
 const SIGNUP_FIELDS = new Set(["name", "email", "password", "callbackURL"]);
 const SIGNIN_FIELDS = new Set([
@@ -50,7 +51,10 @@ export function createAuthPolicy(
 
     if (
       ctx.path === "/sign-up/email" ||
-      ctx.path === "/send-verification-email"
+      ctx.path === "/send-verification-email" ||
+      ctx.path === "/request-password-reset" ||
+      ctx.path === "/change-password" ||
+      ctx.path === "/reset-password"
     ) {
       try {
         emailSender.assertAvailable();
@@ -62,7 +66,9 @@ export function createAuthPolicy(
         });
       }
     }
-    return enforceSessionPolicy(ctx, sessionPolicy);
+    const sessionResult = await enforceSessionPolicy(ctx, sessionPolicy);
+    if (sessionResult) return sessionResult;
+    return enforcePasswordRequest(ctx);
   });
 }
 
