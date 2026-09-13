@@ -20,6 +20,14 @@ coverage/
 /services/*/dist/
 /packages/*/dist/
 
+# Next.js-generated type declarations and agent instructions for the app shells.
+/apps/web/next-env.d.ts
+/apps/admin/next-env.d.ts
+/apps/web/AGENTS.md
+/apps/web/CLAUDE.md
+/apps/admin/AGENTS.md
+/apps/admin/CLAUDE.md
+
 # Playwright test artifacts; E2E source and configuration remain trackable.
 /tests/e2e/playwright-report/
 /tests/e2e/test-results/
