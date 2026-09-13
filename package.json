@@ -6,8 +6,8 @@
     "node": ">=24.19.0 <25"
   },
   "scripts": {
-    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\"",
-    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\"",
+    "format": "prettier --write package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\" \"apps/web/**/*.{ts,tsx,mjs,json,css}\"",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml tsconfig.base.json .prettierrc.json README.md infrastructure/docker/compose.dev.yml \"services/api/**/*.{ts,mts,json}\" \"apps/web/**/*.{ts,tsx,mjs,json,css}\"",
     "db:up": "docker compose -f infrastructure/docker/compose.dev.yml up -d",
     "db:down": "docker compose -f infrastructure/docker/compose.dev.yml down",
     "db:logs": "docker compose -f infrastructure/docker/compose.dev.yml logs --follow postgres",
@@ -20,7 +20,13 @@
     "db:generate": "pnpm --filter @church-platform/api db:generate",
     "db:migrate": "pnpm --filter @church-platform/api db:migrate",
     "db:check": "pnpm --filter @church-platform/api db:check",
-    "api:test:db": "pnpm --filter @church-platform/api test:db"
+    "api:test:db": "pnpm --filter @church-platform/api test:db",
+    "web:dev": "pnpm --filter @church-platform/web dev",
+    "web:build": "pnpm --filter @church-platform/web build",
+    "web:start": "pnpm --filter @church-platform/web start",
+    "web:typecheck": "pnpm --filter @church-platform/web typecheck",
+    "web:test": "pnpm --filter @church-platform/web test",
+    "web:lint": "pnpm --filter @church-platform/web lint"
   },
   "devDependencies": {
     "prettier": "3.9.6"

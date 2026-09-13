@@ -12,3 +12,6 @@ coverage/
 
 # Flutter will use Dart's formatter when scaffolded.
 /apps/mobile/
+
+# Next.js regenerates this type entry point.
+/apps/web/next-env.d.ts

@@ -114,19 +114,19 @@ pnpm install --frozen-lockfile
 pnpm format:check
 ```
 
-Use `pnpm format` to format the foundation files, API workspace, and this README. Existing
+Use `pnpm format` to format the foundation files, API/web workspaces, and this README. Existing
 architecture documents are not reformatted by these scripts. Expand formatting
 coverage as source packages are introduced. Prettier uses the shared
 `.editorconfig` defaults; its generated lockfile is not manually formatted.
 
 pnpm discovers actual package manifests under `apps/*`, `services/*`, and
 `packages/*`. Flutter remains a separate Dart project under `apps/mobile` and
-needs no Node package manifest. Only the API workspace is implemented; other application directories remain placeholders.
+needs no Node package manifest. The API and main web workspaces are implemented; mobile and admin remain deferred.
 No additional monorepo orchestrator is required.
 
 `tsconfig.base.json` shares strictness and casing checks only. Application
 configs will choose their own module resolution, target, JSX, and output settings.
-The API owns its TypeScript/build/test tooling. ESLint remains deferred; no lint script is claimed.
+The API owns its TypeScript/build/test tooling. API linting remains deferred; web linting is scoped to its workspace.
 
 The only root development dependency is Prettier. Commit `pnpm-lock.yaml` with
 intentional dependency changes, and use frozen installs for reproducibility.
@@ -261,3 +261,38 @@ pnpm api:test:db
 pnpm api:typecheck
 pnpm api:build
 ```
+
+## Main Web Shell
+
+`apps/web` is the private `@church-platform/web` Next.js App Router workspace.
+It runs independently of the API and PostgreSQL. From the repository root:
+
+```sh
+pnpm web:dev
+pnpm web:typecheck
+pnpm web:test
+pnpm web:lint
+pnpm web:build
+pnpm web:start
+```
+
+Open `http://localhost:3000`. Build before using `web:start`. Typecheck generates
+Next.js route types before checking source and tests. Vitest, React Testing Library
+and jsdom cover the synchronous root page; E2E tooling remains deferred.
+The shell uses plain CSS, system light/dark preference and English copy isolated
+in `src/i18n/en.ts`. Locale routing and German/Portuguese translations remain for
+the localization foundation; no language preference or account functionality exists.
+
+When running both apps, keep web on 3000 and launch the API in a separate
+PowerShell terminal with its `DATABASE_URL` configured as described above:
+
+```powershell
+$env:PORT = '3001'
+pnpm api:dev
+```
+
+The API's existing default remains 3000. No API connectivity is wired into the web shell.
+Web ESLint uses Next's recommended rules with ESLint 9 because its current plugin
+peers exclude ESLint 10. ESLint 9 is marked unsupported upstream; upgrade when
+Next's plugin dependencies support ESLint 10. The `unrs-resolver` fallback install
+hook is explicitly disabled; packaged native bindings passed local lint validation.

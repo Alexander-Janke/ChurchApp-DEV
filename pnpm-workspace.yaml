@@ -12,3 +12,5 @@ stateDir: .cache/pnpm-state
 allowBuilds:
   "@swc/core": true
   esbuild: true
+  # Packaged native bindings suffice; do not run the fallback installer.
+  unrs-resolver: false
