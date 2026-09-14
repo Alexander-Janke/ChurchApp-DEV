@@ -1878,3 +1878,57 @@ Church and membership suites retain their module-specific queries and assertions
 while sharing role validation, mismatch probes, pool cleanup and overlapping
 transaction checks. No production module, schema, migration, authentication
 behavior or CI configuration changed. Task 1.7 remains blocked.
+
+## Task 1.12: internal roles and permissions foundation
+
+Task 1.12 maps to Phase 1F. The unmounted AuthorizationModule provides an internal
+repository and assignment-evaluation service, with no controllers, client API,
+role seeds or administrative workflow. Role names are labels, never authorization
+conditions. Member remains a relationship state; Primary Owner is a protected
+ownership relationship, not an assignable role.
+
+Application-owned church_role stores id, churchId, name, nullable description,
+isSystem and timestamps. Custom role creation cannot set isSystem; generic rename,
+delete and permission mutation paths protect system roles. Names are trimmed Unicode
+labels (1–100 characters); PostgreSQL lower(name) is unique within each church.
+Descriptions allow up to 500 characters. Lists use keyset pagination, default 50,
+maximum 100. No global listing exists.
+
+church_role_permission and church_membership_role use composite primary keys.
+Their composite foreign keys include church_id on both sides, so even privileged
+raw SQL cannot associate a role with another tenant's membership or permission row.
+Role deletion cascades only its mappings; membership deletion removes its assignments;
+church deletion cascades tenant authorization data, preserving global identities.
+
+The application-owned registry currently accepts only members.view (permitted
+directory read, inactive-eligible) and events.create (ordinary delegated content
+creation, not inactive-eligible). These demonstrate assignment policy, not public
+directory/event functionality. Unknown keys deny access even if inserted outside
+the repository. Metadata defaults inactive eligibility to false and includes a
+privileged-assurance classification; classified privileged keys always deny at this
+foundation boundary. No privileged key is currently registered.
+
+A single scoped joined query resolves current membership, assignments, existing
+roles and permissions. Members may receive assigned permissions; inactive members
+receive only explicitly inactive-eligible assignments; followers and left
+relationships never receive role-derived permissions. Roles do not upgrade status.
+Baseline relationship access and still-assigned object access are separate future
+policies. No caching: each evaluation observes current committed assignment and
+membership state.
+
+All three tables have ENABLE/FORCE RLS with transaction-local app.current_church_id,
+USING and WITH CHECK, plus explicit repository predicates and tenant-safe joins.
+TenantDatabase now checks restricted credentials and enforced RLS on all five
+tenant tables. Migration 0005_roles_permissions_foundation changes only the three
+authorization tables. Its generated composite uniqueness statement is ordered
+before referencing foreign keys, and FORCE RLS is explicitly appended as for
+earlier tenant migrations.
+
+TenantContext is trusted scope, not entitlement; the evaluator's membership ID
+must come from authenticated server-side identity resolution, never an unchecked
+client selector. The service returns only an assignment decision. Future operations
+must combine it with object/privacy policy and required assurance, and re-evaluate
+through the repository inside the protected operation's same transaction.
+Administrative assignment APIs also require entitlement and auditing before release.
+Task 1.7 remains blocked; no owner/admin capabilities, TOTP workaround, standard-role
+activation, object-scoped permissions or Task 1.13 work are included.

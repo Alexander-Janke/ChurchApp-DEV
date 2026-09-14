@@ -2088,3 +2088,11 @@ not:
 ```text
 Build everything at once.
 ```
+
+## Task 1.12 mapping
+
+Task 1.12 — Roles & Permissions Foundation maps to Phase 1F. It establishes internal
+tenant-scoped role bundles, assignments and centralized permission evaluation only.
+No public mutation API, standard role activation or privileged capability is enabled.
+Task 1.7 secure TOTP remains BLOCKED by upstream Better Auth issue #10387; privileged
+assurance and administrative/ownership functionality remain deferred.

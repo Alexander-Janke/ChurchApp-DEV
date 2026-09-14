@@ -1,3 +1,4 @@
+import { authorizationIntegrationTests } from "./support/authorization.integration.js";
 import { tenantHarnessIntegrationTests } from "./support/tenant/harness.integration.js";
 import { membershipIntegrationTests } from "./support/membership.integration.js";
 import { churchIntegrationTests } from "./support/church.integration.js";
@@ -167,6 +168,9 @@ describe("Better Auth migrated PostgreSQL schema", () => {
       "account",
       "church",
       "church_membership",
+      "church_membership_role",
+      "church_role",
+      "church_role_permission",
       "email_change_request",
       "session",
       "user",
@@ -176,7 +180,7 @@ describe("Better Auth migrated PostgreSQL schema", () => {
     const journal = await pool.query(
       "SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations",
     );
-    expect(journal.rows[0].count).toBe(5);
+    expect(journal.rows[0].count).toBe(6);
   });
 
   it("starts AuthModule with default schema validation and queries every model through its real adapter", async () => {
@@ -203,8 +207,14 @@ describe("Better Auth migrated PostgreSQL schema", () => {
       "church_membership_church_id_idx",
       "church_membership_church_user_idx",
       "church_membership_pkey",
+      "church_membership_role_church_id_membership_id_role_id_pk",
+      "church_membership_role_role_idx",
       "church_membership_user_idx",
       "church_pkey",
+      "church_role_church_id_idx",
+      "church_role_church_name_idx",
+      "church_role_permission_church_id_role_id_permission_pk",
+      "church_role_pkey",
       "church_slug_idx",
       "email_change_active_user_idx",
       "email_change_current_hash_idx",
@@ -318,3 +328,5 @@ describe("Better Auth migrated PostgreSQL schema", () => {
 });
 
 tenantHarnessIntegrationTests();
+
+authorizationIntegrationTests();

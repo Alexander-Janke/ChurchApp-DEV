@@ -1806,3 +1806,27 @@ Roadmap:
 `docs/ROADMAP.md`
 
 This document is the source of truth for authorization concepts and role/permission behavior.
+
+## Task 1.12: implemented role-derived membership eligibility
+
+This policy governs role-derived permissions, not every public, relationship-derived
+or object-authorized access class:
+
+- member: assigned canonical permissions may be effective.
+- inactive: only permissions explicitly marked inactiveEligible may be effective.
+  The default is false; inactivity does not retain every assigned permission.
+- follower: no role-derived permissions, even if assignment rows exist.
+- left: no role-derived permissions, including historical assignments.
+
+The minimal code registry includes members.view as inactive-eligible, consistent with
+retained permitted directory access, and events.create as not inactive-eligible.
+No role/membership management, administration, ownership or privileged security
+permission is inactive-eligible. This does not implement a directory or bypass
+private-field/object policy. Roles never change relationship state. State and
+assignment changes apply at the next evaluation without caching.
+
+The internal foundation uses tenant-scoped role bundles and composite-FK assignments,
+not role-name authorization. Member and Primary Owner are not ordinary roles.
+No external role mutation API or privileged standard-role activation is provided;
+secure TOTP and the separate assurance gate remain prerequisites for protected
+capabilities. The full permission catalog and object-scoped policies remain future work.

@@ -2081,7 +2081,8 @@ table ownership at the shared boundary. Disposable databases/roles are removed a
 Migrations run 0000_auth_foundation, 0001_email_change_workflow, 0002_user_profile,
 0003_church_tenant_foundation, then 0004_tenant_membership_foundation. A representative
 upgrade preserves auth/email-change/profile/church data; repeat migration preserves
-relationship data and records exactly five applied entries. Existing security suites
+relationship data and now records six applied entries including Task 1.12.
+Existing security suites
 remain mandatory. Pinned Better Auth 1.7.4 generation must still reproduce its core
 schema unchanged; church_membership remains application-owned.
 
@@ -2134,3 +2135,29 @@ All 35 church and 40 membership cases remain, including duplicate creation/statu
 races, FK/cascade behavior and ownership rewrites. Run `pnpm api:test` for fast
 tests and `pnpm api:test:db` for the full PostgreSQL dispatcher. New tenant modules
 must adopt this harness or equivalent reviewed coverage; failures block release.
+
+## Task 1.12 authorization regression coverage
+
+The authorization suite reuses the Task 1.11 disposable tenant harness with all five
+protected tenant tables. Restricted runtime login assertions cover role flags,
+ownership and ENABLE/FORCE RLS. Broad raw reads, missing context, foreign writes,
+repository/database scope mismatch, commit/rollback reuse and concurrent A/B
+transactions exercise all three new tables. Privileged fixture connections are used
+only for setup/inspection and explicitly identified composite-FK integrity probes,
+never as evidence of RLS enforcement.
+
+Permanent tests cover member allow, inactive opt-in/default deny, follower deny and
+left deny despite retained role assignments. State changes use Task 1.10's existing
+expected-state conditional update: member/inactive/member, member/follower and
+member/left. Removal of assignments or role permissions takes effect immediately.
+Other tenant assignments remain intact; unregistered keys fail closed even if a
+fixture inserts one. System-role mutation protection, case-insensitive per-church
+role uniqueness, duplicate/concurrent assignments, cascade boundaries and additive
+permissions are tested without production role seeds.
+
+The full migration chain is now 0000 through 0005_roles_permissions_foundation.
+Upgrade coverage preserves existing auth, profile, email-change, church and
+membership rows; repeated migration preserves authorization rows with six journal
+entries. The pinned Better Auth schema comparison remains independent of these
+application-owned tables. Existing auth/profile/church/membership tests remain
+required. No privileged authorization is claimed while Task 1.7 is blocked.

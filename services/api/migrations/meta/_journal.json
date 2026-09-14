@@ -36,6 +36,13 @@
       "when": 1789381633947,
       "tag": "0004_tenant_membership_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789387355841,
+      "tag": "0005_roles_permissions_foundation",
+      "breakpoints": true
     }
   ]
 }

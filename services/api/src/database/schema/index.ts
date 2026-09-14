@@ -4,3 +4,4 @@ export * from "./email-change.js";
 export * from "./user-profile.js";
 export * from "./church.js";
 export * from "./church-membership.js";
+export * from "./authorization.js";

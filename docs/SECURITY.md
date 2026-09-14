@@ -2151,3 +2151,32 @@ Positive and negative A/B operations, repository/RLS mismatch, missing context,
 WITH CHECK, rollback and concurrent pooled access must remain release-blocking
 checks. A GUC assertion alone is insufficient: tests must inspect protected rows.
 Fixture contexts do not replace future request authorization or permissions.
+
+## Task 1.12: role-derived permission boundary
+
+Role bundles are tenant-owned; labels confer no privilege. Composite foreign keys
+enforce tenant consistency independently of RLS. ENABLE/FORCE RLS and explicit
+church_id predicates apply to roles and both assignment tables. The production
+tenant transaction guard checks all five protected tenant tables, including role
+ownership/owner membership, superuser/BYPASSRLS/CREATEROLE and RLS enforcement.
+Missing or mismatched context cannot reveal or mutate foreign authorization data.
+
+Role-derived permission eligibility is centralized and fail-closed: member may
+receive assigned permissions; inactive requires explicit inactiveEligible metadata;
+follower and left always deny. Only members.view is currently inactive-eligible,
+consistent with retained permitted directory access. It does not grant sensitive
+profile fields or remove later object/privacy checks. events.create is not eligible.
+Role management, membership management, administration, ownership and privileged
+security operations are not registered or inactive-eligible. Unknown keys deny.
+
+No permission cache exists. Membership status, assignment removal and role-permission
+removal affect the next evaluation. Evaluation is not a promise of future access:
+protected operations must recheck current entitlement within their own transaction.
+No controllers expose assignment mutation; internal repository methods are not a
+delegation check. The caller must resolve the subject's membership from authenticated
+server identity. Driver failures become sanitized service errors, never an allow.
+
+No password or social session alone satisfies privileged assurance. Task 1.7 remains
+blocked; future protected capabilities require secure TOTP and the ADR 0003/Phase 1L
+assurance gate, plus audit trails for administrative mutations. No ownership,
+standard privileged roles, administration APIs or bypasses are activated here.

@@ -110,7 +110,7 @@ export function membershipIntegrationTests() {
             "select count(*)::int n from drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(5);
+      ).toBe(6);
     });
     it("uses a real restricted login without superuser, BYPASSRLS, owner membership or table ownership", async () => {
       await fixture.assertRestrictedRole();

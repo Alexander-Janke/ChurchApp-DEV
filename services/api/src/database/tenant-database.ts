@@ -20,11 +20,11 @@ export class TenantDatabase {
           pg_has_role(current_user, c.relowner, 'MEMBER') as owns,
           c.relrowsecurity, c.relforcerowsecurity
         from pg_roles r cross join pg_class c
-        where r.rolname = current_user and c.oid in ('public.church'::regclass, 'public.church_membership'::regclass)
+        where r.rolname = current_user and c.oid in ('public.church'::regclass, 'public.church_membership'::regclass, 'public.church_role'::regclass, 'public.church_role_permission'::regclass, 'public.church_membership_role'::regclass)
       `);
 
       if (
-        result.rows.length !== 2 ||
+        result.rows.length !== 5 ||
         result.rows.some(
           (role) =>
             role.rolsuper ||
