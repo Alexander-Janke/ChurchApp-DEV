@@ -12,10 +12,21 @@ export class TenantDatabase {
     work: (tx: DatabaseTransaction) => Promise<T>,
   ): Promise<T> {
     TenantContext.assert(context);
-    return this.database.transaction(async (tx) => {
-      // Fail closed even if development/migration credentials are accidentally supplied.
-      // Owner membership also permits SET ROLE; restricted runtime must have neither.
-      const result = await tx.execute(sql`
+    return this.database.transaction((tx) =>
+      this.inTransaction(context, tx, work),
+    );
+  }
+  // Internal composition: same checks and transaction-local RLS, no new connection.
+  // The caller owns commit/rollback and must propagate failures.
+  async inTransaction<T>(
+    context: TenantContext,
+    tx: DatabaseTransaction,
+    work: (tx: DatabaseTransaction) => Promise<T>,
+  ): Promise<T> {
+    TenantContext.assert(context);
+    // Fail closed even if development/migration credentials are accidentally supplied.
+    // Owner membership also permits SET ROLE; restricted runtime must have neither.
+    const result = await tx.execute(sql`
         select r.rolsuper, r.rolbypassrls, r.rolcreaterole,
           pg_has_role(current_user, c.relowner, 'MEMBER') as owns,
           c.relrowsecurity, c.relforcerowsecurity
@@ -23,25 +34,24 @@ export class TenantDatabase {
         where r.rolname = current_user and c.oid in ('public.church'::regclass, 'public.church_membership'::regclass, 'public.church_role'::regclass, 'public.church_role_permission'::regclass, 'public.church_membership_role'::regclass)
       `);
 
-      if (
-        result.rows.length !== 5 ||
-        result.rows.some(
-          (role) =>
-            role.rolsuper ||
-            role.rolbypassrls ||
-            role.rolcreaterole ||
-            role.owns ||
-            !role.relrowsecurity ||
-            !role.relforcerowsecurity,
-        )
+    if (
+      result.rows.length !== 5 ||
+      result.rows.some(
+        (role) =>
+          role.rolsuper ||
+          role.rolbypassrls ||
+          role.rolcreaterole ||
+          role.owns ||
+          !role.relrowsecurity ||
+          !role.relforcerowsecurity,
       )
-        throw new Error(
-          "Restricted tenant database role and enforced RLS required",
-        );
-      await tx.execute(
-        sql`select set_config('app.current_church_id', ${context.churchId}, true)`,
+    )
+      throw new Error(
+        "Restricted tenant database role and enforced RLS required",
       );
-      return work(tx);
-    });
+    await tx.execute(
+      sql`select set_config('app.current_church_id', ${context.churchId}, true)`,
+    );
+    return work(tx);
   }
 }

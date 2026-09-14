@@ -32,15 +32,19 @@ export class OwnershipService {
     context: TenantContext,
     subject: SessionSubject,
     work: (tx: DatabaseTransaction) => Promise<T>,
+    existingTx?: DatabaseTransaction,
   ) {
     TenantContext.assert(context);
     assertOwnershipSubject(subject);
     try {
-      return await this.tenants.transaction(context, async (tx) => {
+      const protectedWork = async (tx: DatabaseTransaction) => {
         await this.repository.requireProtection(tx);
         await tx.execute(sql`set local lock_timeout = '5s'`);
         return work(tx);
-      });
+      };
+      return existingTx
+        ? await this.tenants.inTransaction(context, existingTx, protectedWork)
+        : await this.tenants.transaction(context, protectedWork);
     } catch {
       throw new Error("Ownership operation failed");
     }
@@ -107,6 +111,42 @@ export class OwnershipService {
       );
     });
   }
+  // Server-only bootstrap prerequisite. Locks identity/factor/session until the
+  // caller's transaction ends; initial provisioning does not issue/require elevation.
+  async eligibleInitialCreatorInTransaction(
+    tx: DatabaseTransaction,
+    subject: SessionSubject,
+  ): Promise<boolean> {
+    assertOwnershipSubject(subject);
+    await tx
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.id, subject.userId))
+      .for("share");
+    if (!(await this.lockActor(tx, subject))) return false;
+    const factor = await this.factorState(tx, subject.userId);
+    return (
+      factor.enabled &&
+      factor.verified &&
+      (await this.assurance.evaluate(subject, tx)).authenticated
+    );
+  }
+  // Same eligibility, locks, audit and RLS as standalone establishment. Errors
+  // must escape the caller's outer transaction; this method never commits it.
+  establishInitialOwnerInTransaction(
+    context: TenantContext,
+    subject: SessionSubject,
+    membershipId: string,
+    tx: DatabaseTransaction,
+  ) {
+    return this.mutate(
+      context,
+      subject,
+      parseRelationshipId(membershipId),
+      false,
+      tx,
+    );
+  }
   establishInitialOwner(
     context: TenantContext,
     subject: SessionSubject,
@@ -136,67 +176,83 @@ export class OwnershipService {
     subject: SessionSubject,
     targetId: string,
     transfer: boolean,
+    existingTx?: DatabaseTransaction,
   ): Promise<OwnershipResult> {
-    return this.scoped(context, subject, async (tx) => {
-      const candidate = await this.repository.member(context, tx, targetId);
-      if (!candidate) return "not_found";
-      // Match auth's user-before-session lock order. Sorted user locks avoid
-      // competing recipient/actor order inversions. No sensitive columns selected.
-      await tx
-        .select({ id: user.id })
-        .from(user)
-        .where(
-          inArray(user.id, [...new Set([subject.userId, candidate.userId])]),
+    return this.scoped(
+      context,
+      subject,
+      async (tx) => {
+        const candidate = await this.repository.member(context, tx, targetId);
+        if (!candidate) return "not_found";
+        // Match auth's user-before-session lock order. Sorted user locks avoid
+        // competing recipient/actor order inversions. No sensitive columns selected.
+        await tx
+          .select({ id: user.id })
+          .from(user)
+          .where(
+            inArray(user.id, [...new Set([subject.userId, candidate.userId])]),
+          )
+          .orderBy(asc(user.id))
+          .for("share");
+        if (!(await this.repository.lockChurch(context, tx)))
+          return "not_found";
+        const target = await this.repository.member(
+          context,
+          tx,
+          targetId,
+          true,
+        );
+        if (!target || target.userId !== candidate.userId) return "not_found";
+        const actor = await this.repository.actorMembership(
+          context,
+          tx,
+          subject.userId,
+        );
+        if (
+          !actor ||
+          actor.status !== "member" ||
+          !(await this.lockActor(tx, subject))
         )
-        .orderBy(asc(user.id))
-        .for("share");
-      if (!(await this.repository.lockChurch(context, tx))) return "not_found";
-      const target = await this.repository.member(context, tx, targetId, true);
-      if (!target || target.userId !== candidate.userId) return "not_found";
-      const actor = await this.repository.actorMembership(
-        context,
-        tx,
-        subject.userId,
-      );
-      if (
-        !actor ||
-        actor.status !== "member" ||
-        !(await this.lockActor(tx, subject))
-      )
-        return "denied";
-      const current = await this.repository.current(context, tx);
-      if (!transfer && current) return "conflict";
-      if (transfer && current?.membershipId !== actor.id) return "conflict";
-      if (!transfer && target.userId !== subject.userId) return "denied";
-      const recipientFactor = await this.factorState(tx, target.userId);
-      const actorFactor = await this.factorState(tx, subject.userId);
-      if (
-        !eligibleOwner(
-          target.status,
-          recipientFactor.enabled,
-          recipientFactor.verified,
-        ) ||
-        !eligibleOwner(actor.status, actorFactor.enabled, actorFactor.verified)
-      )
-        return "denied";
-      // Final clock/assurance evaluation is AFTER all potentially blocking locks.
-      const proof = await this.assurance.evaluate(subject, tx);
-      if (
-        transfer
-          ? !mayTransfer(current?.membershipId === actor.id, proof)
-          : !proof.authenticated
-      )
-        return "denied";
-      if (current?.membershipId === target.id) return "unchanged";
-      return (await this.repository.change(
-        context,
-        tx,
-        subject,
-        target.id,
-        current?.membershipId ?? null,
-      ))
-        ? "changed"
-        : "conflict";
-    });
+          return "denied";
+        const current = await this.repository.current(context, tx);
+        if (!transfer && current) return "conflict";
+        if (transfer && current?.membershipId !== actor.id) return "conflict";
+        if (!transfer && target.userId !== subject.userId) return "denied";
+        const recipientFactor = await this.factorState(tx, target.userId);
+        const actorFactor = await this.factorState(tx, subject.userId);
+        if (
+          !eligibleOwner(
+            target.status,
+            recipientFactor.enabled,
+            recipientFactor.verified,
+          ) ||
+          !eligibleOwner(
+            actor.status,
+            actorFactor.enabled,
+            actorFactor.verified,
+          )
+        )
+          return "denied";
+        // Final clock/assurance evaluation is AFTER all potentially blocking locks.
+        const proof = await this.assurance.evaluate(subject, tx);
+        if (
+          transfer
+            ? !mayTransfer(current?.membershipId === actor.id, proof)
+            : !proof.authenticated
+        )
+          return "denied";
+        if (current?.membershipId === target.id) return "unchanged";
+        return (await this.repository.change(
+          context,
+          tx,
+          subject,
+          target.id,
+          current?.membershipId ?? null,
+        ))
+          ? "changed"
+          : "conflict";
+      },
+      existingTx,
+    );
   }
 }

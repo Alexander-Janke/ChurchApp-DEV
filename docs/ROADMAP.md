@@ -2205,3 +2205,19 @@ is introduced. Task 1.7 remains complete with its separately documented temporar
 `better-auth/better-auth#10387` exception. Task 1.17 has not been started.
 
 Task 1.16 implementation is uncommitted and returned for review after validation.
+
+## Task 1.17 — Church Onboarding Foundation
+
+Task 1.17 maps to Phase 1I. This implementation is an internal foundation only,
+returned uncommitted for review; no HTTP onboarding route or UI is mounted.
+Initial onboarding explicitly requires an authenticated session and verified/enabled
+2FA, without elevation or recent step-up. Existing ownership transfer remains
+subject to elevation and recent step-up. Atomic provisioning creates Church (active,
+unverified), creator Member, Primary Owner, mandatory ownership audit and the four
+nonprivileged standard system roles with empty bundles and no assignments.
+
+The server allocates new-tenant scope, enforces existing RLS and uses one transaction
+for every stage; any failure rolls back all artifacts. No Main Church Administrator,
+verification submission, general administration or new schema is included. Task 1.7
+remains complete under the separately documented temporary #10387 exception.
+Task 1.18 has not been started or defined by this work.

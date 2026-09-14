@@ -78,6 +78,7 @@ describe("church verification domain policy", () => {
     ).toEqual(
       [
         "constructor",
+        "createChurch",
         "getCurrentChurch",
         "updateCurrentChurch",
         "requestVerification",

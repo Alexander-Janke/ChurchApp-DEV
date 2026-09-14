@@ -2424,3 +2424,28 @@ not a role and grants no tenant/permission/RLS bypass. Normal profile/church upd
 cannot set ownership. There is no generic removal or external transfer endpoint.
 Future onboarding/transfer APIs require explicit actor authorization, origin controls
 and reviewed interaction design; this task introduces no administrative API or UI.
+
+## Task 1.17 — internal initial onboarding security
+
+The explicit Phase 1I initial-onboarding policy is authenticated PostgreSQL session
+plus verified/enabled 2FA, without elevation or recent step-up. Ownership transfer
+continues to require its separate 15-minute/eight-hour elevation and strictly
+under-five-minute step-up. Initial provisioning creates no assurance or session.
+Pending, absent or disabled factors and revoked/expired/mismatched sessions fail.
+Creator identity is a server-resolved subject, never church input or an owner target.
+
+A new server UUID is the only bootstrap tenant selector. Runtime checks and existing
+RLS remain enforced; transaction-local scope is set before INSERT because that
+INSERT is itself protected by RLS. No existing tenant can be selected through this
+service, and a uniqueness collision never updates the existing church. All dependent
+provisioning uses that same connection/scope. There is no broad privileged database
+bootstrap or public onboarding endpoint.
+
+Church, creator membership, ownership, mandatory ownership audit and canonical roles
+commit atomically. Audit failure and role-provisioning failure roll back the entire
+church, including earlier successful inserts. Failure messages omit driver details
+and secrets. Ownership audit retains the existing minimal historical identifiers,
+not tokens. No role assignment or wildcard permission is implied by ownership.
+Trusted internal callers must propagate transaction errors rather than commit after
+failed provisioning. Future HTTP exposure, administration, verification review and
+onboarding UI are deferred. The accepted #10387 limitation is unchanged.

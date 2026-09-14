@@ -2370,3 +2370,29 @@ must remain identical and exclude both application-owned ownership tables.
 
 Run frozen install, format, contracts/API checks, PostgreSQL tests, Drizzle check,
 web/admin lint/typecheck/test/build, Playwright typecheck/E2E and Flutter validation.
+
+## Task 1.17 — atomic onboarding regressions
+
+`onboarding.spec.ts` checks the unmounted internal module, protected creator/owner
+input rejection through existing church validation, canonical nonprivileged empty
+role definitions, normalization and early fail-closed creator checks.
+`support/onboarding.integration.ts` uses the Task 1.11 disposable PostgreSQL harness
+with a non-owner/NOBYPASSRLS runtime. Non-secret auth SELECT and ID-column UPDATE
+privileges support current session/factor row locks; test setup alone uses the
+migration connection. Structural session/factor fixtures have no assurance row.
+All existing native factor/login and ownership/transfer security suites remain.
+
+Tests prove eligible onboarding without elevation/step-up, exact artifacts/defaults,
+missing/pending/disabled factor rejection, session revocation/expiry/identity checks,
+invalid/protected input, safe duplicate/canonical slug conflicts, concurrent same-slug
+one-winner behavior and independent different-slug provisioning. Instrumented real
+repository stages share the same transaction object, backend PID and transaction ID.
+
+Database INSERT-trigger failures at church, membership, owner, audit and role stages
+leave zero committed artifacts. Additional tests cover ownership denial and failure
+after roles have actually been inserted. Cross-tenant and mismatched-context reads,
+restricted-role checks, rejection of migration credentials, cleared pooled context,
+session/factor/assurance preservation, safe result mapping, and clean/repeated
+migrations through 0009 are permanent regressions. No migration 0010 is introduced.
+Run full contracts/API/PostgreSQL/client/Flutter/Playwright checks, Drizzle validation
+and the pinned Better Auth schema comparison before review.

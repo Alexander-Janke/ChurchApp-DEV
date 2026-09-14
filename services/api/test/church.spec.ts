@@ -154,6 +154,7 @@ describe("church policy and trusted scope", () => {
     ).toEqual(
       [
         "constructor",
+        "createChurch",
         "getCurrentChurch",
         "updateCurrentChurch",
         "requestVerification",

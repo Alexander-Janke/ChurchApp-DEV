@@ -13,6 +13,36 @@ import {
 // caller's transaction handle. No pool fallback and no unrestricted listing API.
 @Injectable()
 export class ChurchRepository {
+  // Only trusted bootstrap code supplies the new server-generated tenant scope.
+  // Plain INSERT (never upsert) cannot overwrite an existing tenant on collision.
+  async createChurch(
+    context: TenantContext,
+    tx: DatabaseTransaction,
+    input: unknown,
+  ) {
+    TenantContext.assert(context);
+    const details = parseChurchDetails(input);
+    const [row] = await tx
+      .insert(church)
+      .values({
+        id: context.churchId,
+        name: details.name,
+        slug: details.slug,
+        addressLine1: details.addressLine1,
+        addressLine2: details.addressLine2,
+        postalCode: details.postalCode,
+        locality: details.locality,
+        region: details.region,
+        countryCode: details.countryCode,
+        denomination: details.denomination,
+        logo: details.logo,
+        status: "active",
+        verificationState: "unverified",
+      })
+      .returning();
+    if (!row) throw new Error("Church creation failed");
+    return row;
+  }
   // No caller-selected target state or church ID. The policy and lock are inside
   // the repository boundary so direct internal use cannot skip request semantics.
   async requestVerification(

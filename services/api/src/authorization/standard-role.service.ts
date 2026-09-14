@@ -1,3 +1,4 @@
+import type { DatabaseTransaction } from "../database/database.types.js";
 import { Injectable } from "@nestjs/common";
 import { TenantContext } from "../database/tenant-context.js";
 import { TenantDatabase } from "../database/tenant-database.js";
@@ -23,6 +24,16 @@ export class StandardRoleService {
     private readonly tenants: TenantDatabase,
     private readonly repository: AuthorizationRepository,
   ) {}
+  // Internal outer-transaction variant; canonical definitions remain in the
+  // existing repository. Caller must roll back on failure, never swallow it.
+  ensureStandardRolesInTransaction(
+    context: TenantContext,
+    tx: DatabaseTransaction,
+  ) {
+    return this.tenants.inTransaction(context, tx, (bound) =>
+      this.repository.ensureStandardRoles(context, bound),
+    );
+  }
   async ensureStandardRoles(context: TenantContext) {
     TenantContext.assert(context);
     try {

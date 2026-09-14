@@ -2313,3 +2313,58 @@ There is no owner/transfer HTTP API, onboarding, owner-removal operation, Main C
 Administrator, Platform Superadmin, UI or recovery flow. Exposing these operations
 later requires reviewed caller authorization and UX; mandatory audit already exists
 for internal writes. The separate accepted #10387 exception remains unchanged.
+
+## Task 1.17 — Church Onboarding Foundation (Phase 1I)
+
+`OnboardingModule` exports the unmounted, server-internal
+`ChurchOnboardingService.createChurch(subject, input)`. There is no controller,
+HTTP onboarding route, startup provisioning, client contract or onboarding UI.
+The subject must come from AuthSessionReader; it is not a public identity DTO.
+The service revalidates the exact session against PostgreSQL and locks current
+identity/session/factor state. Initial onboarding requires a valid authenticated
+session and verified/enabled 2FA. By explicit Phase 1I decision it requires neither
+elevated assurance nor recent step-up. This does not relax Task 1.16 transfer:
+transfer still needs current ownership, valid session-bound elevation and step-up
+strictly under five minutes, and eligible actor/recipient membership and 2FA.
+
+One DatabaseService transaction/connection performs all stages:
+
+1. Validate existing creator session and verified/enabled factor using the ownership
+   eligibility boundary. No session, factor or assurance is created.
+2. Allocate a fresh UUID server-side. Construct trusted provisioning TenantContext
+   only for that newly allocated ID, after creator authorization.
+3. Apply restricted-role/ENABLE/FORCE RLS checks and transaction-local
+   `app.current_church_id`, then insert the church with active/unverified defaults.
+4. Use MembershipRepository to create the creator's `member` relationship.
+5. Use the transaction-aware initial OwnershipService operation to establish that
+   membership as owner and insert its mandatory `initial_owner_established` audit.
+6. Use transaction-aware StandardRoleService to provision its four canonical roles.
+7. Commit only if every stage succeeds; any exception or denied ownership outcome
+   escapes the outer transaction and rolls back all artifacts.
+
+RLS bootstrap allocates the ID before the row exists: the existing church INSERT
+policy itself requires that ID as transaction-local context. It cannot insert the
+row first with no scope. This is an application-authorized new-tenant scope, not an
+existing-tenant selector. INSERT never upserts an existing church. No SUPERUSER,
+BYPASSRLS, table-owner credential, security-definer routine, schema change or RLS
+exception is used. TenantDatabase.inTransaction retains the same checks as its
+standalone transaction method. Ownership/role variants reuse the caller's handle
+without opening/committing a nested transaction. Context is cleared by transaction
+completion, including failure and connection reuse.
+
+ChurchRepository reuses parseChurchDetails and explicit field mapping. Client IDs,
+creator/owner selectors, lifecycle states, roles and permissions are rejected.
+Slug canonicalization and PostgreSQL uniqueness remain authoritative: duplicates
+return a sanitized slug conflict, not existing tenant details. Concurrent identical
+slugs have one complete winner; different slugs may create multiple churches for
+one eligible user. No cross-request idempotency system or one-church/user rule exists.
+
+Each success has one church, member, owner and initial audit, four system roles
+(`group_leader`, `area_leader`, `event_administrator`, `childrens_worker`), zero
+role assignments and zero permission rows. Role definitions remain nonprivileged
+with empty bundles. No verification request, Main Church Administrator, wildcard
+owner permission, transfer, or generic church administration is performed. The
+internal result explicitly maps necessary church/membership/owner identifiers only;
+it exposes no session, factor or audit internals. Future HTTP exposure requires a
+separate review for caller policy, Origin/CSRF, creation limits and transport DTOs.
+The existing temporary better-auth/better-auth#10387 exception remains unchanged.

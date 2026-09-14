@@ -1,3 +1,4 @@
+import { onboardingIntegrationTests } from "./support/onboarding.integration.js";
 import { ownershipIntegrationTests } from "./support/ownership.integration.js";
 import { factorLoginIntegrationTests } from "./support/factor-login.integration.js";
 import { enrollmentIntegrationTests } from "./support/enrollment.integration.js";
@@ -369,3 +370,4 @@ standardRolesIntegrationTests();
 churchVerificationIntegrationTests();
 
 ownershipIntegrationTests();
+onboardingIntegrationTests();
