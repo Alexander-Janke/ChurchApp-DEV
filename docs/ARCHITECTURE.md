@@ -2240,3 +2240,76 @@ accepted limitation tracked by `better-auth/better-auth#10387`, not a fix or RFC
 6238 §5.2 one-time-use compliance. Native algorithm/window parameters are unchanged.
 There is no custom replay guard, library patch, dependency change or new migration.
 Better Auth-owned schema remains identical; application-owned tables remain separate.
+
+## Task 1.16 — Primary Owner Foundation (Phase 1H)
+
+Primary Owner is an application-owned protected relationship, never a church role
+or permission bundle. `church_primary_owner` has `church_id` as its primary key,
+`membership_id`, and timestamptz `created_at`/`updated_at`. The composite membership
+FK `(church_id, membership_id)` prevents cross-tenant references independently of
+RLS. Church and membership deletion cascade ownership. Provisioning may have zero
+owners; the database allows at most one. Future completed onboarding must establish
+one eligible owner, rather than backfilling synthetic owners into existing churches.
+
+The unmounted `OwnershipModule` exports only `OwnershipService`. Its server-only
+operations are `isPrimaryOwner`, `establishInitialOwner` and `transferPrimaryOwner`.
+Every call needs an already authorized TenantContext and a server-resolved
+SessionSubject (`userId`, non-secret `sessionId`) obtained through AuthSessionReader.
+These parameters are not public DTOs or client-selected identities. The service
+revalidates the concrete session against PostgreSQL. No cookie/session token enters
+ownership persistence or responses. Future onboarding must authorize church creation
+and construct its provisioning scope; it cannot pass an arbitrary client tenant.
+
+Initial establishment is deliberately self-establishment: the authenticated actor
+must be the target member. There is no fake admin/system actor, no actorless overload,
+no automatic membership or role assignment, and no automatic elevation. Both initial
+and transfer recipients require current `member` status plus one verified native
+factor and the enabled user flag. Pending material, a flag alone or role names do
+not qualify. Transfer additionally requires the current owner's valid session,
+current eligible membership/factor, elevation and recent step-up. Shared Task 1.15
+policy enforces 15-minute inactivity, eight-hour absolute elevation and the separate
+five-minute proof window; equality is expired. Another session cannot borrow proof.
+
+Mutation transactions acquire sorted user locks, a scoped church lock, and current
+membership/session/assurance/factor locks. This serializes establishment and transfer,
+protects recipient eligibility against concurrent state/factor changes, and rechecks
+assurance time after waits. Lock waits are bounded to five seconds. Transfer uses
+one conditional owner-row update plus its audit insert, never delete/recreate.
+A competing or stale former owner receives `conflict`; self-transfer is `unchanged`
+without timestamp or audit changes. Invalid eligibility/proof returns `denied`;
+missing and foreign targets share `not_found`. Database failures are sanitized.
+
+`church_ownership_audit` is limited to `initial_owner_established` and
+`ownership_transferred`. It stores UUID-text `id`, `church_id`, event type, previous
+nullable/new membership ID snapshots, actor user/session ID snapshots and one
+server/database timestamp. Initial establishment has no previous owner; transfers
+must have distinct previous/new IDs. No password, token, factor material, IP/device
+fingerprint or profile data is stored. Ownership mutation and audit insertion are
+atomic: audit failure rolls back the owner change. Failed/stale/self transfers add
+no success event. This is not a general audit framework.
+
+Audit membership/user/session IDs intentionally have no destructive lifecycle FKs:
+they are historical snapshots validated by the service at event time. Ordinary
+membership, user or session deletion must retain the evidence. The only cascading
+audit FK is church ID, for a future authorized complete-tenant deletion. Both new
+tables have ENABLE/FORCE RLS and explicit church predicates. Audit RLS additionally
+rejects UPDATE/DELETE, even with table CRUD grants. Operational runtime grants should
+be SELECT/INSERT only on audit, no TRUNCATE/DDL/owner privileges. Ownership checks
+need only non-secret auth columns; row locking additionally requires PostgreSQL
+UPDATE privilege (the restricted test role receives ID-column-only lock privilege).
+No runtime RLS bypass is introduced.
+
+Owner authority is uncached. Inactive/follower/left membership or unavailable verified
+factor immediately denies it while retaining the relationship. Restoring `member`
+and verified/enabled 2FA reactivates the predicate, but protected transfer still
+requires fresh valid assurance. Ownership grants no ordinary feature permission,
+platform authority or cross-tenant access. Existing permission/RLS checks remain.
+The operation creates no sessions, changes no session age and issues no assurance.
+
+Migration `0009_primary_owner_foundation` adds only these two application-owned
+tables, their constraints/index and policies; FORCE RLS follows the existing explicit
+migration convention. Better Auth-owned schema and dependencies are unchanged.
+There is no owner/transfer HTTP API, onboarding, owner-removal operation, Main Church
+Administrator, Platform Superadmin, UI or recovery flow. Exposing these operations
+later requires reviewed caller authorization and UX; mandatory audit already exists
+for internal writes. The separate accepted #10387 exception remains unchanged.

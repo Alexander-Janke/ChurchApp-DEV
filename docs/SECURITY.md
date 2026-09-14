@@ -2387,3 +2387,40 @@ flag or role name can act as proof. Step-up alone does not create elevation; nei
 grants permission. Session expiry and all 15m/8h/5m limits remain authoritative.
 Disable and password reset invalidate assurance; email change never manufactures it.
 No privileged feature, trusted devices, OAuth or frontend factor UI is activated.
+
+## Task 1.16 — audited Primary Owner boundary
+
+Internal ownership transfers are not exempt from ADR 0006 auditing. The owner change
+and its minimal `church_ownership_audit` event commit in one PostgreSQL transaction;
+an audit insertion failure must roll back establishment or transfer. Failed/stale
+attempts and no-op self-transfers do not emit successful-transfer events. Audit rows
+are append-only under runtime RLS. Retained membership/user/session IDs are historical
+snapshots, not cascading references, so ordinary identity deletion cannot erase them.
+Only complete church deletion cascades that church's evidence. No credentials,
+TOTP/recovery values or unrelated personal metadata are recorded.
+
+Initial self-establishment requires an authorized provisioning scope, the proposed
+owner's server-resolved valid session, current member status and verified/enabled
+2FA. No fake provisioning administrator or actorless path exists. Transfer requires
+current owner membership, current verified/enabled factor, valid concrete session,
+valid elevation AND recent step-up. The existing exact 15m/8h/5m boundaries apply;
+recipient membership and verified/enabled 2FA are independently mandatory. Missing
+factor, pending enrollment, a user flag alone or proof belonging to another session
+cannot authorize transfer. All sensitive checks occur inside the locked transaction,
+including checks after waiting for another operation. The #10387 exception permits
+reviewed native proof, not any additional bypass.
+
+One row per church and a composite membership FK enforce structural tenant safety.
+Both tables have ENABLE/FORCE RLS and queries explicitly scope church ID. Missing or
+mismatched scope discloses/mutates neither tenant; runtime ownership/superuser/BYPASSRLS
+connections are rejected. Runtime cannot rewrite/delete audit through RLS; deployment
+must not grant audit TRUNCATE, DDL or table-owner authority. The ownership service
+never logs actor requests, credentials or database causes.
+
+Membership becoming inactive/follower/left, factor disable or revoked/expired session
+fails closed without deleting the ownership relationship. Restoration requires current
+member and verified/enabled factor; it does not restore stale assurance. Ownership is
+not a role and grants no tenant/permission/RLS bypass. Normal profile/church updates
+cannot set ownership. There is no generic removal or external transfer endpoint.
+Future onboarding/transfer APIs require explicit actor authorization, origin controls
+and reviewed interaction design; this task introduces no administrative API or UI.

@@ -8,3 +8,5 @@ export * from "./church-membership.js";
 export * from "./authorization.js";
 
 export * from "./two-factor-enrollment.js";
+
+export * from "./ownership.js";

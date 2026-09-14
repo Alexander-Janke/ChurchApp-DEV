@@ -2338,3 +2338,35 @@ Both the original isolated native probe and the public challenge regression carr
 accepted cross-challenge reuse with passing assertions, not an invented rejection.
 They must be revisited with sequential/concurrent independent challenges and
 active-session proof replay before removing the exception after a released fix.
+
+## Task 1.16 — ownership and mandatory audit regressions
+
+`ownership.spec.ts` adds 23 fast cases for membership/factor eligibility, independent
+assurance requirements, protected-field rejection, an unmounted module with no generic
+removal/audit rewrite API, and preservation of the documented #10387 exception.
+
+`support/ownership.integration.ts` adds 54 PostgreSQL tests through the Task 1.11
+restricted non-owner/NOBYPASSRLS harness. Setup may create structural auth/assurance
+fixtures using the migration connection, but every asserted ownership/RLS operation
+runs through restricted runtime transactions. Only explicit non-secret auth columns
+and ID-column UPDATE privileges needed for row locking are granted; no secret-column
+read or production role/bypass is added. Native factor/session issuance continues to
+be exercised by the full unchanged authentication suites.
+
+Coverage includes first/second/concurrent establishment; current member and verified
+factor eligibility for both actor/recipient; actor/session binding; atomic transfer;
+self/stale/concurrent transfer and exact audit counts; initial/transfer audit-failure
+rollback; missing/foreign/mismatched tenant scope; direct composite FK and PK rejection;
+runtime audit UPDATE/DELETE denial; membership/user deletion preserving historical
+audits; complete church cascade; exact assurance expiry boundaries; post-lock session
+revocation/proof-expiry/recipient-status rechecks; immediate membership/factor authority
+loss/restoration; and unchanged role/grant/session state. No public owner API exists.
+
+The 0008-to-0009 upgrade regression preserves populated auth, factor, assurance,
+church, membership and authorization tables. Clean and repeated migration tests cover
+all ten migrations without backfilling owners. Existing migration-count assertions
+advance to ten; prior security assertions remain. Pinned Better Auth schema generation
+must remain identical and exclude both application-owned ownership tables.
+
+Run frozen install, format, contracts/API checks, PostgreSQL tests, Drizzle check,
+web/admin lint/typecheck/test/build, Playwright typecheck/E2E and Flutter validation.

@@ -64,6 +64,13 @@
       "when": 1789403870201,
       "tag": "0008_two_factor_enrollment_binding",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789408327468,
+      "tag": "0009_primary_owner_foundation",
+      "breakpoints": true
     }
   ]
 }

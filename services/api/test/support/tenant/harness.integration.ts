@@ -35,7 +35,7 @@ export function tenantHarnessIntegrationTests() {
               "select count(*)::int n from drizzle.__drizzle_migrations",
             )
           ).rows[0].n,
-        ).toBe(9);
+        ).toBe(10);
         await fixture.assertRestrictedRole();
         const first = fixture.dispose(),
           second = fixture.dispose();

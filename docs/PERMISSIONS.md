@@ -1881,3 +1881,27 @@ an assignment or permission takes effect on the next evaluation even if assuranc
 is still stored. Object/privacy checks remain additional requirements; assurance
 never expands tenant access. Main Church Administrator, Primary Owner and Platform
 Superadmin remain unavailable. Social login alone cannot satisfy future assurance.
+
+## Task 1.16 — protected ownership foundation
+
+Primary Owner is separate from `church_role` and `church_membership_role`.
+Application-owned `church_primary_owner` binds exactly one membership at most per
+church, enforced by the primary key and tenant-safe composite FK. Zero is permitted
+only for foundation/provisioning before later onboarding completes the one-owner
+product requirement. There is no automatic role or permission assignment.
+
+The uncached predicate requires trusted tenant scope, the concrete authenticated
+owner session, current member status and verified/enabled 2FA. Inactive, follower,
+left or disabled/unverified-factor owners have no operational authority. The row is
+retained; restoration to member with verified/enabled factor restores the predicate.
+This does not confer ordinary feature permissions or current elevated assurance.
+
+Initial establishment is internal, authenticated self-provisioning only; future
+onboarding must authorize the church/provisioning scope. Transfer is internal and
+requires current ownership plus valid session-bound elevation (15m inactivity/8h
+absolute) and recent step-up (strictly less than 5m old), with an eligible same-church
+member recipient who has verified/enabled 2FA. Audit insertion is mandatory and
+atomic with every ownership change. A stale/concurrent loser cannot overwrite the
+new owner. Self-transfer changes nothing. No ordinary role, including a custom role
+named Primary Owner, can substitute for this relationship or these assurance checks.
+Main Church Administrator and Platform Superadmin remain unimplemented.

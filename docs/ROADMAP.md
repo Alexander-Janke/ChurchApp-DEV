@@ -2189,3 +2189,19 @@ and server-authoritative; no public assurance completion API or privileged featu
 is activated. Primary Owner, Main Church Administrator, privileged onboarding,
 trusted devices and factor-change/reset workflows still require separate review.
 No next roadmap task or Task 1.16 is started by this work.
+
+## Task 1.16 — Primary Owner Foundation
+
+Task 1.16 maps to Phase 1H. It provides an application-owned ownership relationship
+and minimal mandatory ownership audit, with tenant-safe constraints/RLS, authenticated
+self-establishment and internal atomic transfer requiring both elevation and recent
+step-up. Initial and receiving owners must be current members with verified/enabled
+2FA. No unaudited internal-transfer exception exists.
+
+At most one owner is enforced now; zero is allowed during provisioning. Later normal
+onboarding must establish one eligible owner. No onboarding or ownership HTTP API,
+Main Church Administrator, Platform Superadmin, owner-removal or recovery workflow
+is introduced. Task 1.7 remains complete with its separately documented temporary
+`better-auth/better-auth#10387` exception. Task 1.17 has not been started.
+
+Task 1.16 implementation is uncommitted and returned for review after validation.
