@@ -287,6 +287,42 @@ Critical account changes should be audit logged.
 
 ---
 
+## Task 1.6 email-change enforcement
+
+Native Better Auth 1.7.4 changeEmail remains disabled following the specific stale-link
+address-reassignment reproduction recorded in ADR 0007. The application workflow
+binds user ID permanently and checks the original email snapshot at each transition.
+An older token cannot act on a new owner of that address. New requests supersede old
+incomplete workflows. Both 256-bit opaque tokens are stored only as SHA-256 hashes,
+consumed once under locks, and expire at the original one-hour deadline.
+
+Creation requires an authoritative normal session with Task 1.4's absolute lifetime.
+Both mailbox proofs are mandatory, including for unverified current email. Final
+identity update and session revocation are atomic; only the original valid initiating
+session may survive. Password/provider identity does not change. No auto-login occurs.
+
+All routes are POST and require exact configured Origin; no arbitrary callbacks or
+protected body fields are accepted. Fixed future UI links carry tokens in fragments,
+never server query logs. Future UI must keep fragments out of telemetry and third-party
+content. Native router limits explicitly cover the application endpoints: creation
+3/minute, each redemption 10/minute per source IP, using the existing production
+single-instance memory limiter. Trusted proxy/IP configuration and distributed limits
+remain deployment responsibilities; no Redis was introduced.
+
+Required approval/verification delivery is temporarily awaited while the security
+transaction remains open, with a five-second timeout. Provider failure or timeout
+rolls back creation/consumption, so approval can retry. The local timeout does not
+necessarily cancel external provider work: a provider may deliver after rollback.
+That late email contains a token without the corresponding committed workflow state
+or advancement, so it is unusable, including after a later normal retry. This is a
+UX/operational limitation, never an authorization fallback. Delivery is not
+exactly-once; durable provider/outbox design remains deferred.
+Post-commit informational notice failure is logged without sensitive values and does
+not reverse the verified change. Mail and PostgreSQL are not one atomic delivery
+system. In-process work drains on shutdown but needs a production provider/outbox for
+crash durability. This foundation does not claim privileged or five-minute step-up
+implementation. See [ADR 0007](adr/0007-application-owned-email-change.md).
+
 # 8. Two-Factor Authentication
 
 2FA is mandatory for:

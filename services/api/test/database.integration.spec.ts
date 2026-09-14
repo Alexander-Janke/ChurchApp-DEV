@@ -1,3 +1,4 @@
+import { emailChangeIntegrationTests } from "./support/email-change.integration.js";
 import "reflect-metadata";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { sql } from "drizzle-orm";
@@ -82,6 +83,7 @@ describe("real PostgreSQL foundation", () => {
 registrationIntegrationTests();
 sessionIntegrationTests();
 passwordIntegrationTests();
+emailChangeIntegrationTests();
 
 // A unique database keeps migration/constraint tests away from existing local data.
 // The configured test role needs CREATEDB; it is not a production runtime role.
@@ -156,6 +158,7 @@ describe("Better Auth migrated PostgreSQL schema", () => {
     );
     expect(tables.rows.map((row) => row.tablename)).toEqual([
       "account",
+      "email_change_request",
       "session",
       "user",
       "verification",
@@ -163,7 +166,7 @@ describe("Better Auth migrated PostgreSQL schema", () => {
     const journal = await pool.query(
       "SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations",
     );
-    expect(journal.rows[0].count).toBe(1);
+    expect(journal.rows[0].count).toBe(2);
   });
 
   it("starts AuthModule with default schema validation and queries every model through its real adapter", async () => {
@@ -187,6 +190,10 @@ describe("Better Auth migrated PostgreSQL schema", () => {
     expect(result.rows.map((row) => row.indexname)).toEqual([
       "account_pkey",
       "account_userId_idx",
+      "email_change_active_user_idx",
+      "email_change_current_hash_idx",
+      "email_change_new_hash_idx",
+      "email_change_request_pkey",
       "session_pkey",
       "session_token_unique",
       "session_userId_idx",

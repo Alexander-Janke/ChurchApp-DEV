@@ -8,6 +8,13 @@
       "when": 1789318263614,
       "tag": "0000_auth_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789363936315,
+      "tag": "0001_email_change_workflow",
+      "breakpoints": true
     }
   ]
 }

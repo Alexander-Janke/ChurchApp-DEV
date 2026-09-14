@@ -668,6 +668,37 @@ Do not store long-lived sensitive credentials insecurely in clients.
 
 ---
 
+## Application-owned email change (Task 1.6)
+
+[ADR 0007](adr/0007-application-owned-email-change.md) replaces the rejected native
+Better Auth 1.7.4 email-change flow with a user-ID-bound PostgreSQL workflow. Native
+changeEmail stays explicitly disabled. Supported application-owned POST endpoints
+under /api/v1/auth are /email-change/request (newEmail only),
+/email-change/approve-current (token only), and /email-change/verify-new (token only).
+They reuse Better Auth's router through an application-owned endpoint extension,
+not a second login/session implementation.
+
+The request derives user/session identity server-side and rechecks session validity.
+Current-address approval is required for every account, then new-address verification.
+One table stores immutable user binding, email snapshots, initiating-session snapshot,
+state, hashes and timestamps. Only the final transaction changes the exact user's
+email and emailVerified, consumes the token, marks completion and revokes other own
+sessions. The valid initiating session keeps its original creation time; if missing
+or expired, all own sessions are revoked. No session is created. Password, user ID
+and credential/provider accounts remain unchanged; login uses the new email afterward.
+
+The original one-hour deadline covers both phases. Both tokens are strictly single-use,
+and latest request wins under user-first locks and a partial unique index. Hash lookup
+never substitutes for immutable-user ownership checks. The custom table is exported
+from the application schema index but excluded from Better Auth-owned generated
+schema: the pinned generator must still reproduce auth.ts unchanged.
+
+Approval/verification delivery failure rolls back the transition, allowing retry.
+Completion notices to the old address run after commit and cannot undo identity changes.
+Delivery is provider-neutral, bounded and tracked, but not crash-durable. Full failure,
+rate-limit, frontend-fragment and upgrade-review details are in ADR 0007. No frontend,
+OAuth linking, mobile policy or privileged assurance is implemented.
+
 # 15. Authorization
 
 Use role-based access control with additional contextual authorization where needed.

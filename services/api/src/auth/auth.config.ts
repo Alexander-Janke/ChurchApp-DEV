@@ -1,3 +1,5 @@
+import { emailChangePlugin } from "./email-change.plugin.js";
+import type { EmailChangeService } from "./email-change.service.js";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { betterAuth } from "better-auth";
 import type { Database } from "../database/database.types.js";
@@ -72,6 +74,7 @@ export function createBetterAuth(
   database: Database,
   emailSender: AuthEmailSender = new UnavailableAuthEmailSender(),
   sessionPolicy: AuthSessionPolicy = new AuthSessionPolicy(),
+  emailChanges?: EmailChangeService,
 ) {
   if (emailSender.mode === "test" && process.env.NODE_ENV !== "test") {
     throw new AuthConfigurationError(
@@ -83,6 +86,10 @@ export function createBetterAuth(
   // remain an application-owned check when those providers are added.
   return betterAuth({
     baseURL: getBetterAuthUrl(),
+    user: {
+      changeEmail: { enabled: false, updateEmailWithoutVerification: false },
+    },
+    plugins: [emailChangePlugin(emailChanges, getBetterAuthUrl())],
     basePath: BETTER_AUTH_BASE_PATH,
     secret: getBetterAuthSecret(),
     database: drizzleAdapter(database, { provider: "pg", schema: authSchema }),

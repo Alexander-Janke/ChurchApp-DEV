@@ -17,6 +17,14 @@ export interface PasswordChangedMessage {
   readonly reason: "change" | "reset";
 }
 
+export interface EmailChangeApprovalMessage extends EmailVerificationMessage {
+  readonly newEmail: string;
+}
+export interface EmailChangeVerificationMessage extends EmailVerificationMessage {}
+export interface EmailChangeCompletedMessage {
+  readonly recipient: string;
+  readonly newEmail: string;
+}
 export class AuthEmailUnavailableError extends Error {
   constructor() {
     super("Authentication email delivery is not configured");
@@ -35,6 +43,70 @@ export abstract class AuthEmailSender {
   abstract sendPasswordReset(message: PasswordResetMessage): Promise<void>;
   abstract sendPasswordChanged(message: PasswordChangedMessage): Promise<void>;
 
+  async sendEmailChangeApproval(
+    _message: EmailChangeApprovalMessage,
+  ): Promise<void> {
+    throw new AuthEmailUnavailableError();
+  }
+  async sendEmailChangeVerification(
+    _message: EmailChangeVerificationMessage,
+  ): Promise<void> {
+    throw new AuthEmailUnavailableError();
+  }
+  async sendEmailChangeCompleted(
+    _message: EmailChangeCompletedMessage,
+  ): Promise<void> {
+    throw new AuthEmailUnavailableError();
+  }
+  deliverEmailChangeApproval(
+    message: EmailChangeApprovalMessage,
+  ): Promise<void> {
+    return this.requiredDelivery(() => this.sendEmailChangeApproval(message));
+  }
+  deliverEmailChangeVerification(
+    message: EmailChangeVerificationMessage,
+  ): Promise<void> {
+    return this.requiredDelivery(() =>
+      this.sendEmailChangeVerification(message),
+    );
+  }
+  dispatchEmailChangeCompleted(message: EmailChangeCompletedMessage): void {
+    try {
+      this.dispatch(() => this.sendEmailChangeCompleted(message));
+    } catch {
+      this.logger.error("Authentication email delivery failed");
+    }
+  }
+  private async requiredDelivery(send: () => Promise<void>): Promise<void> {
+    this.assertAvailable();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const delivery = Promise.resolve().then(send);
+    // Track late completion even after timeout. A late email carries an invalid
+    // token if its transaction rolled back; provider diagnostics never escape.
+    const pending = delivery
+      .then(
+        () => undefined,
+        () => undefined,
+      )
+      .finally(() => this.pending.delete(pending));
+    this.pending.add(pending);
+    try {
+      await Promise.race([
+        delivery,
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("Email delivery timed out")),
+            5000,
+          );
+        }),
+      ]);
+    } catch {
+      this.logger.error("Authentication email delivery failed");
+      throw new Error("Authentication email delivery failed");
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
   dispatchPasswordReset(message: PasswordResetMessage): void {
     this.dispatch(() => this.sendPasswordReset(message));
   }

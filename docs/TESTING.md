@@ -293,6 +293,17 @@ fragile equal wall-clock durations for database operations. Tokens, hashes and U
 stay in process memory and are not snapshotted. The pinned schema comparison must
 remain identical; no new migration is generated.
 
+Task 1.6 adds focused policy/router tests and disposable PostgreSQL workflow tests.
+The permanent address-reassignment regression supersedes an older request, completes
+the newer request, registers a different user at the released old address, then proves
+both stale approval and stale verification fail without changing either user or
+creating a session. Additional coverage includes verified/unverified current address,
+hashes-only storage, exact expiry, single-use concurrency, destination races, identity
+and session isolation, Origin/POST/protected fields, failed delivery retry, notification
+failure, and clean/repeated migration. Actual router-limit tests explicitly enable
+in-memory limiting. Native changeEmail remains disabled. The custom workflow table
+must never appear in Better Auth's generated core schema; see ADR 0007.
+
 Fast API tests check Better Auth's default schema validation without database I/O.
 This checks Drizzle metadata, not PostgreSQL catalogs; the real integration tests
 cover the physical schema. Existing health/auth-route and JSON parsing tests remain

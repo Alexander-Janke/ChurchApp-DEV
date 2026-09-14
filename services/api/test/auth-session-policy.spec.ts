@@ -70,7 +70,9 @@ describe("normal web session policy", () => {
       cookieCache: { enabled: false },
     });
     expect(auth.options).not.toHaveProperty("secondaryStorage");
-    expect(auth.options).not.toHaveProperty("plugins");
+    expect(auth.options.plugins?.map((plugin) => plugin.id)).toEqual([
+      "application-email-change",
+    ]);
     expect(auth.options).not.toHaveProperty("rateLimit");
   });
   it.each([
