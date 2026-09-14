@@ -273,12 +273,11 @@ is authenticated self-profile only, using an application-owned one-to-one
 user_profile table and the canonical Better Auth user.image reference.
 Public/member directories, visibility controls and client UI remain deferred.
 
-Task 1.7a — 2FA Foundation, Enrollment & Recovery: complete (preparation scope only).
-Task 1.7b — Secure TOTP Verification / Replay Protection: BLOCKED — upstream
-Better Auth TOTP replay issue #10387. Task 1.7 as a whole is not complete.
-Preparation does not activate trusted second-factor login or privileged assurance.
-This blocker remains independent of ordinary self-profile work. No privileged
-capability may bypass the TOTP/assurance prerequisites in Phase 1L.
+Task 1.7a and Task 1.7b-1 are complete. Task 1.7b-2 activates native factor login
+and internal assurance proof under the explicitly accepted temporary replay risk
+tracked by better-auth/better-auth#10387. Task 1.7 is complete with that exception,
+Task 1.7b-2 is reviewed and complete. See the current acceptance section at the end.
+No privileged capability may bypass the TOTP/assurance prerequisites in Phase 1L.
 
 Implement the platform user profile.
 
@@ -2099,7 +2098,7 @@ No public mutation API, standard role activation or privileged capability is ena
 Task 1.7 secure TOTP remains BLOCKED by upstream Better Auth issue #10387; privileged
 assurance and administrative/ownership functionality remain deferred.
 
-## Task 1.7a / 1.7b acceptance boundary
+## Historical Task 1.7a / 1.7b acceptance boundary (superseded below)
 
 Task 1.7a prepares canonical encrypted enrollment and backup material, native
 recovery rotation and password-protected disable. Task 1.7b-1 adds the separately
@@ -2143,6 +2142,8 @@ foundation can proceed without activating any of those capabilities.
 
 ## Task 1.15 — Assurance, Elevation & Step-Up Foundation
 
+Historical baseline: login/issuance gate statements here are superseded by Task 1.7b-2 below.
+
 Maps to Phase 1L. Implements internal session-bound assurance storage and the
 15-minute inactivity / eight-hour maximum elevation and separate five-minute
 critical step-up policies, lifecycle invalidation and combined permission checks.
@@ -2166,6 +2167,25 @@ No custom TOTP replay guard or dependency change is included. Task 1.16 has not
 started. The existing upstream limitation and permanent probe remain recorded;
 this enrollment subtask does not resolve or re-analyze that limitation.
 
-Task 1.7b-1 implementation and required local validation are complete and awaiting
-review; changes remain uncommitted. This does not mark production login activation
-or the broader Task 1.7b complete.
+Task 1.7b-1 was reviewed and committed at
+`12ae3c25c917c3831ed2e7b92489598b6e1565b6`; login activation is covered below.
+
+## Task 1.7b-2 — TOTP/recovery login and assurance proof
+
+Task 1.7a: complete. Task 1.7b-1: complete. Task 1.7b-2: complete. Task 1.15: complete.
+Task 1.7b-2 activates native factor login and separate server-only elevation/step-up
+proof completion, preserving the reviewed enrollment transaction architecture.
+Task 1.7 is complete with the documented temporary security exception for
+`better-auth/better-auth#10387`. This implementation has been reviewed and approved.
+
+TOTP authentication is active with a temporary accepted replay limitation tracked
+by `better-auth/better-auth#10387`. Earlier task sections describing closed gates
+record their historical baseline; this decision supersedes those blockers. It does
+not claim RFC 6238 §5.2 replay compliance and adds no replay workaround. The issue
+must be reconsidered when a complete released upstream fix becomes available.
+
+Ordinary factor login does not issue elevation. Explicit proof remains session-bound
+and server-authoritative; no public assurance completion API or privileged feature
+is activated. Primary Owner, Main Church Administrator, privileged onboarding,
+trusted devices and factor-change/reset workflows still require separate review.
+No next roadmap task or Task 1.16 is started by this work.

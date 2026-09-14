@@ -1,3 +1,4 @@
+import { FactorAssurance } from "./factor-assurance.js";
 import { AuthTransaction } from "./auth-transaction.js";
 import { TwoFactorEnrollment } from "./two-factor-enrollment.js";
 import type { DatabaseService } from "../database/database.service.js";
@@ -97,7 +98,11 @@ export function createBetterAuth(
     },
     plugins: [
       emailChangePlugin(emailChanges, getBetterAuthUrl()),
-      preparationTwoFactor(enrollment, getBetterAuthUrl()),
+      preparationTwoFactor(
+        enrollment,
+        getBetterAuthUrl(),
+        new FactorAssurance(authTransaction),
+      ),
     ],
     basePath: BETTER_AUTH_BASE_PATH,
     secret: getBetterAuthSecret(),

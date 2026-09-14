@@ -2249,6 +2249,8 @@ Better Auth 1.7.4 schema generation must remain identical. No Task 1.14 migratio
 
 ## Task 1.15 assurance regression coverage
 
+Historical baseline: login/issuance gate statements here are superseded by Task 1.7b-2 below.
+
 `assurance.spec.ts` covers normal versus elevated versus recent proof, exact
 15-minute/eight-hour/five-minute boundaries, invalid/future/pre-session timestamps,
 clock failure, immutable permission requirements, proof independence and the fixed
@@ -2275,6 +2277,8 @@ Run the canonical contracts/API/client/Flutter/Playwright checks and `pnpm db:ch
 Task 1.15 validates storage/policy, not secure MFA completion: Task 1.7b remains blocked.
 
 ## Task 1.7b-1 enrollment consistency tests
+
+Historical baseline: login/issuance gate statements here are superseded by Task 1.7b-2 below.
 
 `enrollment.spec.ts` covers generation references, ciphertext fingerprinting,
 ownership, exact expiry boundaries, strict input/secret-safe diagnostics and the
@@ -2303,3 +2307,34 @@ Task 1.7b-1 validation: 25 new fast tests (357 total) and 19 new PostgreSQL test
 while waiting for the user lock. Contracts (2), web (1), admin (1), Flutter (1) and
 Playwright (3) pass, alongside typechecks/builds, formatting, Drizzle check,
 clean/repeated migration and the identical pinned Better Auth schema comparison.
+
+## Task 1.7b-2 — factor login and assurance proof regressions
+
+The earlier closed-gate expectations describe their original task baselines; the
+current suite expects native challenge completion while preserving all prior test
+blocks and enrollment race/rollback assertions. `factor-verification.spec.ts` adds
+21 fast cases for strict code-only input, secret-safe errors and canonical versus
+server-only endpoint boundaries. The API total is 378 fast tests.
+
+`support/factor-login.integration.ts` adds 28 PostgreSQL cases using real enrollment,
+canonical login challenges and internal native proof operations. Coverage includes
+wrong/malformed/expired codes; no pre-factor session; consumed-challenge sequential
+and concurrent rejection; independent-challenge replay characterization; recovery
+sequential/concurrent one-use and cross-user isolation; challenge expiry/attempt
+budget; trusted-device and injected-claim rejection; no native enrollment bypass;
+secret-safe logs/responses; session-bound explicit elevation and independent step-up;
+no HTTP issuer; expired-session denial; proof-persistence rollback with recovery
+consumption; revocation/logout, reset, factor disable and email-change interactions.
+Ordinary factor login and enrollment must never issue assurance.
+
+The PostgreSQL total is 464 tests. All 19 enrollment-consistency cases remain,
+including confirmation-first/replacement-first ordering and native-write rollback.
+Existing restricted-tenant authorization and exact 15m/8h/5m boundary tests remain.
+Clean/repeated migration tests use the unchanged 0000–0008 chain. Pinned Better Auth
+1.7.4 schema generation must still match the committed Better Auth-owned schema.
+
+Both the original isolated native probe and the public challenge regression carry
+`KNOWN UPSTREAM LIMITATION — better-auth/better-auth#10387`. They characterize
+accepted cross-challenge reuse with passing assertions, not an invented rejection.
+They must be revisited with sequential/concurrent independent challenges and
+active-session proof replay before removing the exception after a released fix.

@@ -1,32 +1,21 @@
+import { factorBody } from "./factor-verification-policy.js";
+import type { FactorAssurance } from "./factor-assurance.js";
 import { twoFactor } from "better-auth/plugins";
 import { APIError, createAuthEndpoint } from "better-auth/api";
 import type { TwoFactorEnrollment } from "./two-factor-enrollment.js";
 import { enrollmentInput } from "./two-factor-enrollment-policy.js";
 import type { GenericEndpointContext } from "better-auth";
 
-// Code-owned gate, deliberately not an environment switch. Task 1.7b requires
-// separate review before activating production second-factor login.
-export const SECURE_TOTP_VERIFICATION_ENABLED = false;
+// KNOWN UPSTREAM LIMITATION — better-auth/better-auth#10387:
+// Native cross-challenge TOTP replay is temporarily accepted, not fixed here.
+export const SECURE_TOTP_VERIFICATION_ENABLED = true;
 export const TWO_FACTOR_ISSUER = "Church Platform";
-
-function blockedVerification(path: string) {
-  return createAuthEndpoint(path, { method: "POST" }, async () => {
-    throw new APIError("SERVICE_UNAVAILABLE", {
-      code: "SECOND_FACTOR_UNAVAILABLE",
-      message: "Second-factor verification is not available",
-    });
-  });
-}
 
 export function preparationTwoFactor(
   enrollment?: TwoFactorEnrollment,
   baseURL?: string,
+  assurance?: FactorAssurance,
 ) {
-  if (SECURE_TOTP_VERIFICATION_ENABLED !== false) {
-    throw new Error(
-      "Secure second-factor verification requires a reviewed implementation",
-    );
-  }
   const native = twoFactor({
     issuer: TWO_FACTOR_ISSUER,
     skipVerificationOnEnable: false,
@@ -66,11 +55,37 @@ export function preparationTwoFactor(
       },
     );
   }
+  function complete(
+    method: "totp" | "recovery",
+    purpose: "elevation" | "step-up",
+  ) {
+    return createAuthEndpoint.serverOnly(
+      { method: "POST", requireHeaders: true, body: factorBody(method) },
+      async (ctx) => {
+        if (!assurance)
+          throw new APIError("SERVICE_UNAVAILABLE", {
+            message: "Assurance completion unavailable",
+          });
+        const response = await assurance.complete(
+          ctx,
+          native.endpoints,
+          method,
+          purpose,
+        );
+        ctx.setHeader("cache-control", "no-store");
+        return ctx.json(response);
+      },
+    );
+  }
   // Retain canonical schema, credential challenge hooks and native rate limits.
   // Explicitly omit OTP, subsequent secret/code retrieval and server generators.
   return {
     ...native,
     endpoints: {
+      completeTotpElevation: complete("totp", "elevation"),
+      completeRecoveryElevation: complete("recovery", "elevation"),
+      completeTotpStepUp: complete("totp", "step-up"),
+      completeRecoveryStepUp: complete("recovery", "step-up"),
       enableTwoFactor: coordinated("begin", "/two-factor/enable"),
       confirmEnrollment: coordinated(
         "confirm",
@@ -78,8 +93,8 @@ export function preparationTwoFactor(
       ),
       disableTwoFactor: coordinated("disable", "/two-factor/disable"),
       generateBackupCodes: native.endpoints.generateBackupCodes,
-      verifyTOTP: blockedVerification("/two-factor/verify-totp"),
-      verifyBackupCode: blockedVerification("/two-factor/verify-backup-code"),
+      verifyTOTP: native.endpoints.verifyTOTP,
+      verifyBackupCode: native.endpoints.verifyBackupCode,
     },
   };
 }

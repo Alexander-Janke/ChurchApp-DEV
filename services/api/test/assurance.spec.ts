@@ -147,12 +147,14 @@ describe("permission and production completion boundaries", () => {
     requiresPrivilegedAssurance: true,
     requiresRecentStepUp: true,
   };
-  it("fixed gates stay false and issuance cannot be enabled with environment claims", () => {
-    vi.stubEnv("SECURE_ELEVATION_COMPLETION_ENABLED", "true");
+  it("availability is code-owned and generic claims cannot issue assurance", () => {
+    vi.stubEnv("SECURE_ELEVATION_COMPLETION_ENABLED", "false");
     try {
-      expect(SECURE_ELEVATION_COMPLETION_ENABLED).toBe(false);
-      expect(SECURE_TOTP_VERIFICATION_ENABLED).toBe(false);
-      expect(() => requireSecureElevationCompletion()).toThrow("unavailable");
+      expect(SECURE_ELEVATION_COMPLETION_ENABLED).toBe(true);
+      expect(SECURE_TOTP_VERIFICATION_ENABLED).toBe(true);
+      expect(() => requireSecureElevationCompletion()).toThrow(
+        "verified factor operation",
+      );
     } finally {
       vi.unstubAllEnvs();
     }

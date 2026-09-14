@@ -1,3 +1,4 @@
+import { factorLoginIntegrationTests } from "./support/factor-login.integration.js";
 import { enrollmentIntegrationTests } from "./support/enrollment.integration.js";
 import { assuranceAuthorizationIntegrationTests } from "./support/assurance-authorization.integration.js";
 import { assuranceIntegrationTests } from "./support/assurance.integration.js";
@@ -91,6 +92,7 @@ describe("real PostgreSQL foundation", () => {
   });
 });
 
+factorLoginIntegrationTests();
 enrollmentIntegrationTests();
 assuranceIntegrationTests();
 assuranceAuthorizationIntegrationTests();

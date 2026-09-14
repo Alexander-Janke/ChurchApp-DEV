@@ -288,7 +288,7 @@ export function enrollmentIntegrationTests() {
             await challenge(),
           )
         ).status,
-      ).toBe(503);
+      ).toBe(200);
     });
     it("requires session, password, exact fields and trusted origin before generation", async () => {
       expect((await post("/two-factor/enable", { password })).status).toBe(401);

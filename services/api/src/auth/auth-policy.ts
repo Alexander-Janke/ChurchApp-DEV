@@ -1,3 +1,4 @@
+import { enforceFactorLogin } from "./factor-verification-policy.js";
 import { enforceTwoFactorPreparation } from "./auth-two-factor.js";
 import { Logger } from "@nestjs/common";
 import { APIError, createAuthMiddleware } from "better-auth/api";
@@ -70,6 +71,7 @@ export function createAuthPolicy(
     const sessionResult = await enforceSessionPolicy(ctx, sessionPolicy);
     if (sessionResult) return sessionResult;
     enforceTwoFactorPreparation(ctx);
+    await enforceFactorLogin(ctx);
     return enforcePasswordRequest(ctx);
   });
 }

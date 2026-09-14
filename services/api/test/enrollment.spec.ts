@@ -115,9 +115,9 @@ describe("enrollment generation policy", () => {
   it("diagnostics expose neither proof nor generation material", () => {
     expect(staleEnrollment().message).toBe("Enrollment is no longer current");
   });
-  it("enrollment coordination does not activate login or assurance", () => {
-    expect(SECURE_TOTP_VERIFICATION_ENABLED).toBe(false);
-    expect(SECURE_ELEVATION_COMPLETION_ENABLED).toBe(false);
+  it("enrollment remains separate from activated login and internal proof", () => {
+    expect(SECURE_TOTP_VERIFICATION_ENABLED).toBe(true);
+    expect(SECURE_ELEVATION_COMPLETION_ENABLED).toBe(true);
     const plugin = preparationTwoFactor();
     expect(plugin.endpoints.confirmEnrollment.path).toBe(
       "/two-factor/enrollment/confirm",

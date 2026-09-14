@@ -1,7 +1,8 @@
 import { AuthSessionPolicy } from "./auth-session-policy.js";
 
-// Deliberately code-owned: no environment/configuration switch or HTTP issuer.
-export const SECURE_ELEVATION_COMPLETION_ENABLED = false;
+// Code-owned availability of internal proof completion, not a grant of permission.
+// No environment switch or HTTP issuer; proof is required for every completion.
+export const SECURE_ELEVATION_COMPLETION_ENABLED = true;
 export const ELEVATION_IDLE_MS = 15 * 60 * 1000;
 export const ELEVATION_MAX_MS = 8 * 60 * 60 * 1000;
 export const STEP_UP_MAX_MS = 5 * 60 * 1000;
@@ -55,9 +56,8 @@ export class AssurancePolicy {
   }
 }
 
-// No claim, proof payload or caller timestamp can issue assurance in Task 1.15.
+// The legacy generic entry point accepts no claims. Concrete server-only
+// completion operations must verify a native factor.
 export function requireSecureElevationCompletion(): never {
-  throw new Error(
-    "Secure assurance completion is unavailable pending Task 1.7b",
-  );
+  throw new Error("Assurance completion requires a verified factor operation");
 }

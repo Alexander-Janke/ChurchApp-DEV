@@ -2278,6 +2278,8 @@ reviewed entitlement and audit integration. Failures expose no driver diagnostic
 
 ## Task 1.15 assurance security boundary
 
+Historical baseline: login/issuance gate statements here are superseded by Task 1.7b-2 below.
+
 Normal opaque PostgreSQL sessions prove identity only. Session-bound elevation has
 a 15-minute inactivity limit AND an eight-hour absolute limit; critical step-up is
 a separate nonsliding five-minute proof window. Exact equality expires each window.
@@ -2311,6 +2313,8 @@ claim those later security flows complete.
 
 ## Task 1.7b-1 enrollment security boundary
 
+Historical baseline: login/issuance gate statements here are superseded by Task 1.7b-2 below.
+
 A pending enrollment may replace another pending enrollment, never a verified
 factor. Begin/confirm/disable lock the same immutable user row and re-read the
 session after locking. The confirmation must match that user's current generation,
@@ -2335,3 +2339,51 @@ age. The existing upstream replay characterization remains unchanged; enrollment
 generation consumption is not a TOTP replay guard or an RFC replay-compliance
 claim. Production TOTP/recovery login stays disabled pending separate review.
 Verified-factor replacement, privileged activation and Task 1.16 remain deferred.
+
+## Task 1.7b-2 — SECURITY ACCEPTANCE — TOTP REPLAY
+
+Current decision superseding earlier Task 1.7 login/issuance blockers: TOTP and
+recovery-code authentication are active, with a temporary accepted upstream TOTP
+replay limitation in Better Auth 1.7.4 (`better-auth/better-auth#10387`). A TOTP
+successfully accepted in one independent challenge may be accepted in another
+challenge during the native window; active-session proof can also reuse it. This
+deviates from RFC 6238 §5.2 one-time-use semantics. It is not replay-safe or fixed.
+The native six-digit, 30-second SHA-1 TOTP and adjacent-step tolerance are unchanged.
+
+Only this replay limitation is accepted. Wrong, malformed and out-of-window codes
+must fail. A consumed challenge cannot create another session. Recovery codes must
+remain one-time under sequential and concurrent redemption. Password-only challenges
+cannot access authenticated routes. The permanent marker is
+`KNOWN UPSTREAM LIMITATION — better-auth/better-auth#10387`.
+
+Reconsider the exception when a released Better Auth version claims a complete fix.
+Before removing it, prove the same TOTP/timestep succeeds in challenge A but fails
+in independent challenge B, concurrent independent challenges permit at most one
+success, and active-session step-up replay is rejected. Review the release and run
+the full regressions before changing the pinned dependency. Do not automatically
+switch behavior on upgrade, use an unmerged PR or patch the library.
+
+Public factor completion accepts only a code with the configured API origin and
+valid native challenge for an enabled verified factor. Active-session verification
+uses the separate generation-bound enrollment route or internal assurance proof
+operations. No `trustDevice`, `disableSession`, client identity or assurance claims
+are allowed. Trusted-device cookies cannot bypass password login. Responses retain
+no-store; codes, challenge/session credentials, encrypted material and setup URIs
+are not logged or included in ordinary session JSON.
+
+Native login controls remain: a ten-minute challenge, five failed challenge attempts,
+ten account failures before a fifteen-minute lock, and endpoint limiting of three
+requests per ten seconds. Endpoint limiting is single-instance/in-memory, not
+shared abuse prevention. Native challenge/account limits apply to sign-in, not
+active-session proof. The four proof-completion methods are server-only, with no
+public route; any later HTTP caller requires its own reviewed throttling and proof
+policy. Enrollment retains its existing endpoint limiter and transaction protection.
+
+Ordinary two-factor login creates no privileged assurance. Explicit internal proof
+completion requires a real native TOTP/recovery verification, locks/rechecks the
+owned current session and factor, and persists server times atomically with native
+recovery consumption. Failure cannot mint assurance. No token, caller timestamp,
+flag or role name can act as proof. Step-up alone does not create elevation; neither
+grants permission. Session expiry and all 15m/8h/5m limits remain authoritative.
+Disable and password reset invalidate assurance; email change never manufactures it.
+No privileged feature, trusted devices, OAuth or frontend factor UI is activated.

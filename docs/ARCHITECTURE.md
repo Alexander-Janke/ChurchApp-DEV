@@ -2091,6 +2091,8 @@ privileged administration remain deferred while this metadata foundation proceed
 
 ## Task 1.15 — Assurance, Elevation & Step-Up Foundation
 
+Historical baseline: login/issuance gate statements here are superseded by Task 1.7b-2 below.
+
 Task 1.15 maps to Phase 1L. Ordinary authentication, elevation and recent step-up
 are independent concepts. `AssuranceModule` provides only an internal service:
 no completion/status controller, proof issuer or privileged feature is exposed.
@@ -2147,6 +2149,8 @@ privileged operations, security-event history and audit integration remain defer
 
 ## Task 1.7b-1 — transactionally consistent enrollment
 
+Historical baseline: login/issuance gate statements here are superseded by Task 1.7b-2 below.
+
 Only enrollment confirmation is activated. POST `/api/v1/auth/two-factor/enable`
 requires the existing authenticated session, current password and trusted origin.
 It returns native setup material plus a server-generated, non-secret `enrollmentId`.
@@ -2191,3 +2195,48 @@ remain 503-gated. No trusted-device path, elevation issuer, role activation or
 Task 1.16 work is enabled. A newly verified factor therefore causes subsequent
 password login to enter a challenge that cannot yet complete; production login
 activation requires the separate Task 1.7b review.
+
+## Task 1.7b-2 — native factor login and explicit assurance proof
+
+This section supersedes the historical closed-login/issuance gates in Tasks 1.7a,
+1.15 and 1.7b-1. Task 1.7b-1 enrollment generation binding, pending-only replacement,
+user-row serialization, transactional native writes and original session age are
+unchanged. Verified-factor replacement remains unavailable.
+
+POST `/api/v1/auth/two-factor/verify-totp` and `/verify-backup-code` now invoke the
+native Better Auth 1.7.4 verification endpoints. Both require the configured API
+origin, an exact code-only body and an unexpired signed sign-in challenge belonging
+to an enabled, verified factor. The native ten-minute challenge is consumed before
+session issuance. Password-only authentication has no normal application session.
+Active-session calls to these public endpoints are rejected, so they cannot bypass
+the generation-bound enrollment confirmation route. Trusted-device input/cookies
+remain rejected; email/SMS OTP and subsequent secret retrieval remain unavailable.
+
+Ordinary factor login creates an opaque PostgreSQL session and no assurance.
+Four server-only Better Auth API operations provide explicit proof completion:
+`completeTotpElevation`, `completeRecoveryElevation`, `completeTotpStepUp` and
+`completeRecoveryStepUp`. They have no HTTP route. The application selects the
+purpose through the operation, never a client-supplied flag or timestamp. A valid
+current session and verified enabled factor are required. The operation locks the
+user and owned session, rechecks normal-session validity, invokes the native factor
+verifier, then writes only server-generated assurance times in the same application
+transaction. Recovery-code consumption rolls back if assurance persistence fails.
+No generic claim-to-assurance issuer is exposed.
+
+Elevation writes elevation start/activity; step-up writes only its independent
+proof time. Neither proof creates or rotates a session or changes its `createdAt`.
+The 15-minute inactivity/eight-hour absolute elevation and separate five-minute
+step-up windows remain unchanged, as do 7-day rolling/one-day refresh/30-day absolute
+normal sessions. Polling never issues or refreshes proof. Session revocation/logout
+and password reset cascade assurance deletion. Factor disable invalidates assurance;
+email change preserves enrolled material and retained proof times without new proof.
+Tenant, membership, permission and required-assurance checks still all apply.
+No privileged permission, role, ownership or administrative flow is activated.
+
+SECURITY ACCEPTANCE — TOTP REPLAY: Better Auth 1.7.4 can accept a successfully used
+TOTP again within its native acceptance window, including independent login
+challenges and active-session proof operations. This is the explicitly temporary
+accepted limitation tracked by `better-auth/better-auth#10387`, not a fix or RFC
+6238 §5.2 one-time-use compliance. Native algorithm/window parameters are unchanged.
+There is no custom replay guard, library patch, dependency change or new migration.
+Better Auth-owned schema remains identical; application-owned tables remain separate.

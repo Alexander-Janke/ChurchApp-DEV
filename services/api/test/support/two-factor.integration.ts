@@ -370,7 +370,7 @@ export function twoFactorIntegrationTests() {
       ).toBe(409);
       expect(JSON.stringify(await rows()) === before).toBe(true);
     });
-    it("records the native blocker: same TOTP and timestep authenticate two independent challenges", async () => {
+    it("KNOWN UPSTREAM LIMITATION — better-auth/better-auth#10387: same TOTP authenticates independent challenges", async () => {
       await activate();
       await pool.query("DELETE FROM session WHERE user_id=$1", [id]);
       const a = await challenge(),
@@ -397,7 +397,7 @@ export function twoFactorIntegrationTests() {
       expect([first.status, second.status]).toEqual([200, 200]);
       expect(await sessions()).toHaveLength(2);
     });
-    it("refuses valid TOTP for both independent application challenges, with no sessions or assurance", async () => {
+    it("completes independent login challenges without granting access to consumed challenge cookies", async () => {
       await activate();
       await pool.query("DELETE FROM session WHERE user_id=$1", [id]);
       const a = await challenge(),
@@ -405,9 +405,9 @@ export function twoFactorIntegrationTests() {
       const otp = await code();
       for (const c of [a, b]) {
         const res = await post("/two-factor/verify-totp", { code: otp }, c);
-        expect(res.status).toBe(503);
+        expect(res.status).toBe(200);
         noLeaks(await res.json(), [otp, c]);
-        expect(cookies(res)).toBe("");
+        expect(Boolean(cookies(res))).toBe(true);
         expect(await current(c)).toBeNull();
         await request(app.getHttpServer())
           .get("/api/v1/profile/me")
@@ -418,7 +418,7 @@ export function twoFactorIntegrationTests() {
           .set("Origin", origin)
           .set("Cookie", c)
           .send({ code: otp })
-          .expect(503);
+          .expect(401);
         expect(
           (await post("/two-factor/disable", { password }, c)).status,
         ).toBe(401);
@@ -427,9 +427,13 @@ export function twoFactorIntegrationTests() {
             .status,
         ).toBe(401);
       }
-      expect(await sessions()).toHaveLength(0);
+      expect(await sessions()).toHaveLength(2);
+      expect(
+        (await pool.query("SELECT count(*)::int n FROM session_assurance"))
+          .rows[0].n,
+      ).toBe(0);
     });
-    it("blocks enrollment proof and production backup login as well as trustDevice creation", async () => {
+    it("rejects trustDevice claims without modifying pending enrollment", async () => {
       const material = await enroll();
       const before = await sessions();
       for (const path of ["verify-totp", "verify-backup-code"]) {
@@ -442,7 +446,7 @@ export function twoFactorIntegrationTests() {
           },
           cookie,
         );
-        expect(res.status).toBe(503);
+        expect(res.status).toBe(400);
         expect(res.headers.has("set-cookie")).toBe(false);
       }
       expect(await sessions()).toEqual(before);
@@ -730,7 +734,7 @@ export function twoFactorIntegrationTests() {
           );
           statuses.push(res.status);
         }
-        expect(statuses).toEqual([503, 503, 503, 429]);
+        expect(statuses).toEqual([400, 400, 400, 429]);
       } finally {
         ctx.rateLimit.enabled = previous;
       }

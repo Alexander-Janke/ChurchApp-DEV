@@ -646,7 +646,7 @@ export function assuranceIntegrationTests() {
         expect(await count(c.subject.userId)).toBe(0);
       },
     );
-    it("no production completion route exists and supported factor verification remains blocked", async () => {
+    it("no public assurance issuer exists and login verifier rejects an active session", async () => {
       const c = await register();
       for (const path of ["/elevate", "/assurance/complete", "/step-up"])
         expect((await post(path, { elevated: true }, c.cookie)).status).toBe(
@@ -655,7 +655,7 @@ export function assuranceIntegrationTests() {
       expect(
         (await post("/two-factor/verify-totp", { code: "000000" }, c.cookie))
           .status,
-      ).toBe(503);
+      ).toBe(409);
       expect(await count(c.subject.userId)).toBe(0);
     });
     it("service errors do not contain database or session secrets", async () => {

@@ -17,16 +17,20 @@ function auth() {
   return createBetterAuth(drizzle.mock({ schema }));
 }
 it.each(["test", "development", "production"])(
-  "cannot enable the secure verifier through %s configuration",
+  "native login activation remains code-owned in %s configuration",
   (environment) => {
     vi.stubEnv("NODE_ENV", environment);
-    vi.stubEnv("SECURE_TOTP_VERIFICATION_ENABLED", "true");
-    expect(SECURE_TOTP_VERIFICATION_ENABLED).toBe(false);
+    vi.stubEnv("SECURE_TOTP_VERIFICATION_ENABLED", "false");
+    expect(SECURE_TOTP_VERIFICATION_ENABLED).toBe(true);
     expect(auth().options.session?.cookieCache?.enabled).toBe(false);
   },
 );
-it("mounts only password-protected preparation and blocked verification endpoints", () => {
+it("mounts reviewed preparation/login and server-only proof operations", () => {
   expect(Object.keys(preparationTwoFactor().endpoints).sort()).toEqual([
+    "completeRecoveryElevation",
+    "completeRecoveryStepUp",
+    "completeTotpElevation",
+    "completeTotpStepUp",
     "confirmEnrollment",
     "disableTwoFactor",
     "enableTwoFactor",
@@ -58,10 +62,9 @@ it.each(["verify-totp", "verify-backup-code"])(
         body: JSON.stringify({ code: value, trustDevice: true }),
       }),
     );
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(400);
     expect(await res.json()).toEqual({
-      code: "SECOND_FACTOR_UNAVAILABLE",
-      message: "Second-factor verification is not available",
+      message: "Invalid factor request",
     });
     expect(res.headers.has("set-cookie")).toBe(false);
   },
