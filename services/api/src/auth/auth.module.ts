@@ -26,6 +26,7 @@ import { AuthEmailModule, AuthEmailSender } from "./auth-email.js";
           emailSender,
           undefined,
           new EmailChangeService(database, emailSender, getBetterAuthUrl()),
+          (work) => database.transaction(work),
         ),
         bodyParser: {
           json: { enabled: true },

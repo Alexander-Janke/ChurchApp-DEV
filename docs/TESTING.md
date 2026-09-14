@@ -2181,8 +2181,9 @@ expected blocker, not a passing claim of replay protection. Main CI stays green
 because the shipped gate denies verification. Native backup probes require exactly
 one concurrent success, safe loser rejection (401 or 409), sequential/unknown/
 foreign-code rejection and old-code invalidation after rotation. Native-enabled
-fixtures originate from that isolated enrollment verifier; production has no
-flag override or test user path.
+fixtures in this original probe originate from its isolated enrollment verifier.
+Task 1.7b-1 separately tests the real authenticated enrollment-confirmation path;
+production has no flag override or test user path.
 
 All previous auth, email-change, profile and tenant/permission tests remain in the
 suite. Migration checks now include 0000 through 0006, preserving prior fields and
@@ -2272,3 +2273,33 @@ include the eighth migration; Better Auth-owned schema comparison remains unchan
 
 Run the canonical contracts/API/client/Flutter/Playwright checks and `pnpm db:check`.
 Task 1.15 validates storage/policy, not secure MFA completion: Task 1.7b remains blocked.
+
+## Task 1.7b-1 enrollment consistency tests
+
+`enrollment.spec.ts` covers generation references, ciphertext fingerprinting,
+ownership, exact expiry boundaries, strict input/secret-safe diagnostics and the
+unchanged login/elevation gates. `support/enrollment.integration.ts` exercises the
+real application endpoints in a disposable PostgreSQL database. Native Better Auth
+is used separately only to generate fixture codes, never to bypass confirmation.
+
+Permanent races queue operations behind a PostgreSQL user-row lock, using separate
+auth instances: confirmation-first rejects replacement and preserves the verified
+material; replacement-first rejects old confirmation and requires the new setup's
+proof. Duplicate confirmation transitions once. Tests also cover password/origin/
+identity restrictions, expiry, cross-user isolation, no-store, unchanged session
+count and absolute age, zero assurance, and transactional rollback of native factor,
+user flag, session rotation and generation state on forced persistence failures.
+No replacement cookie may escape a failed transaction.
+
+Clean migration coverage includes 0000–0008; repeat migration preserves pending
+material and user deletion cascades coordination. Better Auth 1.7.4 generation must
+still reproduce its committed schema exactly; the enrollment table is application-
+owned and must not appear in that generator output. The original #10387 probe is
+retained unchanged. This subtask does not activate TOTP/recovery login, privileged
+assurance or a custom replay guard.
+
+Task 1.7b-1 validation: 25 new fast tests (357 total) and 19 new PostgreSQL tests
+(436 total), including authenticated confirmation throttling and a session revoked
+while waiting for the user lock. Contracts (2), web (1), admin (1), Flutter (1) and
+Playwright (3) pass, alongside typechecks/builds, formatting, Drizzle check,
+clean/repeated migration and the identical pinned Better Auth schema comparison.

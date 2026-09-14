@@ -2187,8 +2187,9 @@ The isolated PostgreSQL/Drizzle probe reproduces Better Auth 1.7.4 issue #10387:
 one currently valid code is accepted on two independent login challenges in the
 same timestep. Native TOTP uses six digits, 30 seconds, SHA-1 and the utility's
 one-step tolerance on either side; it does not consume an accepted timestep.
-Native enrollment confirmation uses that same verifier. The application therefore
-never invokes it: both TOTP and backup-code completion return a generic 503.
+Task 1.7a originally blocked that verifier for enrollment as well as login.
+Task 1.7b-1 now invokes it only behind authenticated generation-bound enrollment
+confirmation. Both TOTP and backup-code login completion still return generic 503.
 This is a disabled authentication path, not a replay workaround. No second-factor
 assurance or privileged capability can be granted by Task 1.7a.
 
@@ -2220,9 +2221,9 @@ distributed abuse-prevention system. Blocked requests can return 429 when limite
 
 Native disable requires password re-entry and a database-authoritative session;
 it is not privileged step-up. Its cookie/session rotation is explicitly reported
-and preserves original `createdAt`. Native multi-write enable/disable operations
-are not one transaction; failures are surfaced and logged only through sanitized
-auth diagnostics. No atomic-operation claim is made. No ownership or administrative
+and preserves original `createdAt`. Task 1.7b-1 wraps native enrollment/disable
+writes and application coordination in one database transaction; failures roll back
+and diagnostics remain sanitized. No ownership or administrative
 function becomes usable here. Native trusted-device bypass is prevented even for
 an existing correctly signed trust cookie; no supported endpoint creates one.
 
@@ -2307,3 +2308,30 @@ regeneration, factor recovery and privileged mutations need explicit operation-s
 proof and audit decisions before activation. Password change/email verification alone
 do not manufacture step-up. This task adds no audit/history storage and does not
 claim those later security flows complete.
+
+## Task 1.7b-1 enrollment security boundary
+
+A pending enrollment may replace another pending enrollment, never a verified
+factor. Begin/confirm/disable lock the same immutable user row and re-read the
+session after locking. The confirmation must match that user's current generation,
+the exact native encrypted-secret fingerprint and its unexpired one-hour lifetime.
+A winning confirmation prevents later replacement; a winning replacement makes
+old confirmation stale. These rules are enforced across independent app instances,
+not with process-local mutexes. Session cookies are sent only after commit.
+
+Generation IDs are non-secret references, not authentication proofs. Setup secrets,
+URIs, passwords and codes must never enter logs. Setup material is disclosed only
+to the authenticated password-proved caller with `Cache-Control: no-store`.
+Confirmation returns no reusable token or material. Exact request fields and the
+configured API origin are required; caller identity, trust-device and assurance
+claims are rejected. Native two-factor endpoint limiting remains three requests
+per ten seconds, in-memory per instance. Native account/challenge lockout applies
+to sign-in verification, not authenticated enrollment; no such lockout claim is
+made for enrollment. It retains endpoint throttling.
+
+Native verification is used solely for enrollment completion, with no new login
+or assurance issuance. Its current-session rotation preserves original absolute
+age. The existing upstream replay characterization remains unchanged; enrollment
+generation consumption is not a TOTP replay guard or an RFC replay-compliance
+claim. Production TOTP/recovery login stays disabled pending separate review.
+Verified-factor replacement, privileged activation and Task 1.16 remain deferred.

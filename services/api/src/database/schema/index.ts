@@ -6,3 +6,5 @@ export * from "./user-profile.js";
 export * from "./church.js";
 export * from "./church-membership.js";
 export * from "./authorization.js";
+
+export * from "./two-factor-enrollment.js";

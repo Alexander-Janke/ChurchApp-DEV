@@ -228,13 +228,13 @@ export function assuranceIntegrationTests() {
       ).rows[0].n as number;
     }
 
-    it("migrates through 0007 and repeat migration preserves data and history", async () => {
+    it("migrates through 0008 and repeat migration preserves data and history", async () => {
       await issue();
       const before = await state();
       const journal = await pool.query(
         "select hash from drizzle.__drizzle_migrations order by id",
       );
-      expect(journal.rows).toHaveLength(8);
+      expect(journal.rows).toHaveLength(9);
       await migrate(drizzle(pool), { migrationsFolder: folder });
       expect(
         (

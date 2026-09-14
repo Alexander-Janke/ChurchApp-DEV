@@ -232,7 +232,7 @@ export function profileIntegrationTests() {
               "SELECT count(*)::int n FROM drizzle.__drizzle_migrations",
             )
           ).rows[0].n,
-        ).toBe(8);
+        ).toBe(9);
       } finally {
         await upgradePool?.end();
         if (upgradeCreated)
@@ -574,7 +574,7 @@ export function profileIntegrationTests() {
             "SELECT count(*)::int n FROM drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(8);
+      ).toBe(9);
       expect((await get().expect(200)).body.id).toBe(id);
     });
   });

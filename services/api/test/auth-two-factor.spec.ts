@@ -27,6 +27,7 @@ it.each(["test", "development", "production"])(
 );
 it("mounts only password-protected preparation and blocked verification endpoints", () => {
   expect(Object.keys(preparationTwoFactor().endpoints).sort()).toEqual([
+    "confirmEnrollment",
     "disableTwoFactor",
     "enableTwoFactor",
     "generateBackupCodes",

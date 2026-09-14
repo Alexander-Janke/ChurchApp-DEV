@@ -1961,9 +1961,10 @@ freshness-age check. Native disable uses authoritative session middleware, which
 also does not itself enforce `freshSessionMiddleware`'s age window. These password
 proofs do not implement future privileged step-up.
 
-Enrollment remains `two_factor.verified = false` and does not set
-`user.twoFactorEnabled`. Native confirmation uses the vulnerable verifier and is
-not available even for enrollment. A pending setup does not protect later logins:
+Task 1.7a originally left enrollment pending. Task 1.7b-1 adds the authenticated,
+generation-bound confirmation described below; production login completion remains
+disabled. Before confirmation, `two_factor.verified = false` and
+`user.twoFactorEnabled` is not enabled. A pending setup does not protect later logins:
 ordinary password sessions remain ordinary sessions. For a native-enabled state,
 password sign-in creates only a signed ten-minute two-factor challenge backed by
 verification records; it deletes the interim session. The challenge cannot access
@@ -2143,3 +2144,50 @@ email changes preserve retained proof timestamps without issuing fresh proof.
 Recovery-code regeneration also cannot issue proof. Future factor-reset flows must
 invoke the same invalidation boundary before mutation. Production factor issuance,
 privileged operations, security-event history and audit integration remain deferred.
+
+## Task 1.7b-1 — transactionally consistent enrollment
+
+Only enrollment confirmation is activated. POST `/api/v1/auth/two-factor/enable`
+requires the existing authenticated session, current password and trusted origin.
+It returns native setup material plus a server-generated, non-secret `enrollmentId`.
+POST `/api/v1/auth/two-factor/enrollment/confirm` accepts exactly `enrollmentId`
+and a six-digit `code`, with an authenticated session and trusted origin. Native
+Better Auth generates, encrypts and verifies the factor material; no library patch,
+custom TOTP verifier or replay-consumption store is introduced.
+
+Application-owned `two_factor_enrollment` stores `user_id` (PK, cascading user FK),
+unique UUID `id`, SHA-256 `factor_fingerprint` of the native encrypted secret,
+`created_at` and `expires_at`. It contains no plaintext secret, code or setup URI.
+Row presence means pending; completion/disable deletes it, replacement overwrites
+it with a new generation. No enrollment history is retained. A generation expires
+one hour after creation; `expiresAt <= now` is stale. This is separate from the
+unchanged Better Auth-owned schema. Migration: `0008_two_factor_enrollment_binding`.
+
+Begin, confirm and disable serialize on the same PostgreSQL user-row lock, across
+application instances. The existing DatabaseService transaction owns the connection.
+`AuthTransaction` routes the unmodified public Better Auth Drizzle adapter through
+that connection using request-local async scope; normal auth requests still use the
+pool. Session validity is rechecked after the lock. Native material writes and
+application generation changes commit or roll back together. Lock waits are bounded
+to five seconds. Response cookies are forwarded only after successful commit.
+
+Pending may replace pending. If confirmation wins, the verified factor cannot be
+replaced: later enable returns a safe conflict without changing material. If
+replacement wins, the old generation cannot confirm; the replacement requires its
+own material. Confirmation checks ownership, ID, ciphertext fingerprint and expiry
+before invoking the native verifier. Duplicate confirmation has one successful
+transition. Verified-factor change/reset is a separate, unimplemented workflow.
+
+Native confirmation rotates the existing authenticated session; it does not add
+an extra session. The transaction preserves its original `createdAt`, maintaining
+the 30-day absolute limit. The safe confirmation response includes `sessionRotated:
+true`; the new cookie replaces the previous one. Other sessions are not changed by
+this enrollment subtask. Enrollment creates no assurance or privileged access.
+Disable also serializes factor removal, pending-state deletion and existing
+assurance invalidation in the same transaction.
+
+Both production login completion routes (`verify-totp`, `verify-backup-code`)
+remain 503-gated. No trusted-device path, elevation issuer, role activation or
+Task 1.16 work is enabled. A newly verified factor therefore causes subsequent
+password login to enter a challenge that cannot yet complete; production login
+activation requires the separate Task 1.7b review.

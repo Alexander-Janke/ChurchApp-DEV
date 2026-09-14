@@ -362,12 +362,12 @@ export function twoFactorIntegrationTests() {
           (await post("/two-factor/" + path, { password }, cookie)).status,
         ).toBe(404);
     });
-    it("keeps native enrollment replacement protection for an already active test fixture", async () => {
+    it("keeps verified enrollment replacement protection for an already active test fixture", async () => {
       await activate();
       const before = JSON.stringify(await rows());
       expect(
         (await post("/two-factor/enable", { password }, cookie)).status,
-      ).toBe(400);
+      ).toBe(409);
       expect(JSON.stringify(await rows()) === before).toBe(true);
     });
     it("records the native blocker: same TOTP and timestep authenticate two independent challenges", async () => {
@@ -627,7 +627,7 @@ export function twoFactorIntegrationTests() {
       expect(await sessions()).toEqual(before);
       expect(await current(await challenge())).toBeNull();
     });
-    it("cascades factor material on user deletion and safely repeats all seven migrations", async () => {
+    it("cascades factor material on user deletion and safely repeats all nine migrations", async () => {
       await enroll();
       const before = JSON.stringify(await rows());
       await migrate(drizzle(pool), { migrationsFolder: folder });
@@ -638,7 +638,7 @@ export function twoFactorIntegrationTests() {
             "SELECT count(*)::int n FROM drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(8);
+      ).toBe(9);
       await pool.query('DELETE FROM "user" WHERE id=$1', [id]);
       expect(await rows()).toHaveLength(0);
     });

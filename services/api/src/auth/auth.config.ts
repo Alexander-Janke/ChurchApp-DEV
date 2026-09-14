@@ -1,11 +1,12 @@
+import { AuthTransaction } from "./auth-transaction.js";
+import { TwoFactorEnrollment } from "./two-factor-enrollment.js";
+import type { DatabaseService } from "../database/database.service.js";
 import { invalidateUserAssurance } from "./session-assurance.service.js";
 import { preparationTwoFactor } from "./auth-two-factor.js";
 import { emailChangePlugin } from "./email-change.plugin.js";
 import type { EmailChangeService } from "./email-change.service.js";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { betterAuth } from "better-auth";
 import type { Database } from "../database/database.types.js";
-import * as authSchema from "../database/schema/auth.js";
 import { BETTER_AUTH_BASE_PATH } from "./auth.constants.js";
 import { AuthEmailSender, UnavailableAuthEmailSender } from "./auth-email.js";
 import { createAuthLogger, createAuthPolicy } from "./auth-policy.js";
@@ -77,12 +78,15 @@ export function createBetterAuth(
   emailSender: AuthEmailSender = new UnavailableAuthEmailSender(),
   sessionPolicy: AuthSessionPolicy = new AuthSessionPolicy(),
   emailChanges?: EmailChangeService,
+  transaction?: DatabaseService["transaction"],
 ) {
   if (emailSender.mode === "test" && process.env.NODE_ENV !== "test") {
     throw new AuthConfigurationError(
       "Test email delivery requires NODE_ENV=test",
     );
   }
+  const authTransaction = new AuthTransaction(database, transaction);
+  const enrollment = new TwoFactorEnrollment(authTransaction);
   // Better Auth's default 2FA challenge covers credential sign-in but does not
   // automatically gate OAuth/social authentication; privileged assurance will
   // remain an application-owned check when those providers are added.
@@ -93,11 +97,11 @@ export function createBetterAuth(
     },
     plugins: [
       emailChangePlugin(emailChanges, getBetterAuthUrl()),
-      preparationTwoFactor(),
+      preparationTwoFactor(enrollment, getBetterAuthUrl()),
     ],
     basePath: BETTER_AUTH_BASE_PATH,
     secret: getBetterAuthSecret(),
-    database: drizzleAdapter(database, { provider: "pg", schema: authSchema }),
+    database: authTransaction.adapter,
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
@@ -130,14 +134,17 @@ export function createBetterAuth(
         update: {
           before: async (data, ctx) => {
             // Native disable calls this AFTER password proof and BEFORE factor removal.
-            // Invalidate first: a later native failure may conservatively lose assurance,
-            // but must never leave trusted state behind after factor disable.
+            // The enrollment coordinator commits invalidation and native factor
+            // removal together, or rolls both back on failure.
             if (ctx?.path === "/two-factor/disable") {
               const current = ctx.context.session;
               if (!current || data.twoFactorEnabled !== false)
                 throw new APIError("UNAUTHORIZED", { message: "Unauthorized" });
               try {
-                await invalidateUserAssurance(database, current.user.id);
+                await invalidateUserAssurance(
+                  authTransaction.db,
+                  current.user.id,
+                );
               } catch {
                 throw new APIError("SERVICE_UNAVAILABLE", {
                   message: "Assurance invalidation failed",

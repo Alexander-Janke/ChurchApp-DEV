@@ -1,9 +1,11 @@
 import { twoFactor } from "better-auth/plugins";
 import { APIError, createAuthEndpoint } from "better-auth/api";
+import type { TwoFactorEnrollment } from "./two-factor-enrollment.js";
+import { enrollmentInput } from "./two-factor-enrollment-policy.js";
 import type { GenericEndpointContext } from "better-auth";
 
 // Code-owned gate, deliberately not an environment switch. Task 1.7b requires
-// separate review before replacing these endpoints with a replay-safe verifier.
+// separate review before activating production second-factor login.
 export const SECURE_TOTP_VERIFICATION_ENABLED = false;
 export const TWO_FACTOR_ISSUER = "Church Platform";
 
@@ -16,7 +18,10 @@ function blockedVerification(path: string) {
   });
 }
 
-export function preparationTwoFactor() {
+export function preparationTwoFactor(
+  enrollment?: TwoFactorEnrollment,
+  baseURL?: string,
+) {
   if (SECURE_TOTP_VERIFICATION_ENABLED !== false) {
     throw new Error(
       "Secure second-factor verification requires a reviewed implementation",
@@ -27,13 +32,51 @@ export function preparationTwoFactor() {
     skipVerificationOnEnable: false,
     backupCodeOptions: { storeBackupCodes: "encrypted" },
   });
+  function coordinated(
+    operation: "begin" | "confirm" | "disable",
+    path: string,
+  ) {
+    return createAuthEndpoint(
+      path,
+      { method: "POST", requireHeaders: true },
+      async (ctx) => {
+        if (!baseURL || ctx.headers?.get("origin") !== new URL(baseURL).origin)
+          throw new APIError("FORBIDDEN", {
+            message: "Untrusted request origin",
+          });
+        if (!enrollment)
+          throw new APIError("SERVICE_UNAVAILABLE", {
+            message: "Enrollment operation unavailable",
+          });
+        const input = enrollmentInput(ctx.body, operation === "confirm");
+        const result = await enrollment.execute(
+          ctx,
+          native.endpoints,
+          operation,
+          input,
+        );
+        result.headers.set("cache-control", "no-store");
+        result.headers.set("pragma", "no-cache");
+        result.headers.forEach((value, name) => {
+          if (name !== "set-cookie") ctx.setHeader(name, value);
+        });
+        for (const cookie of result.headers.getSetCookie())
+          ctx.responseHeaders.append("set-cookie", cookie);
+        return ctx.json(result.response);
+      },
+    );
+  }
   // Retain canonical schema, credential challenge hooks and native rate limits.
   // Explicitly omit OTP, subsequent secret/code retrieval and server generators.
   return {
     ...native,
     endpoints: {
-      enableTwoFactor: native.endpoints.enableTwoFactor,
-      disableTwoFactor: native.endpoints.disableTwoFactor,
+      enableTwoFactor: coordinated("begin", "/two-factor/enable"),
+      confirmEnrollment: coordinated(
+        "confirm",
+        "/two-factor/enrollment/confirm",
+      ),
+      disableTwoFactor: coordinated("disable", "/two-factor/disable"),
       generateBackupCodes: native.endpoints.generateBackupCodes,
       verifyTOTP: blockedVerification("/two-factor/verify-totp"),
       verifyBackupCode: blockedVerification("/two-factor/verify-backup-code"),

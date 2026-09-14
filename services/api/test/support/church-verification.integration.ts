@@ -148,7 +148,7 @@ export function churchVerificationIntegrationTests() {
             "select count(*)::int n from drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(8);
+      ).toBe(9);
     });
     it.each(["unverified", "rejected", "revoked"] as const)(
       "requests %s -> pending only for A, preserving other church fields",
@@ -445,7 +445,7 @@ export function churchVerificationIntegrationTests() {
             "select count(*)::int n from drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(8);
+      ).toBe(9);
     });
   });
 }

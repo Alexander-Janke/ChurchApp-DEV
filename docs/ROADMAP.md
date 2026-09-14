@@ -2102,7 +2102,8 @@ assurance and administrative/ownership functionality remain deferred.
 ## Task 1.7a / 1.7b acceptance boundary
 
 Task 1.7a prepares canonical encrypted enrollment and backup material, native
-recovery rotation and password-protected disable. Enrollment remains pending;
+recovery rotation and password-protected disable. Task 1.7b-1 adds the separately
+reviewed generation-bound enrollment confirmation described below;
 TOTP and backup-code login completion are blocked in all application environments.
 No trusted devices, assurance, privileged roles, Primary Owner or elevation are
 activated. Task 1.13 is not part of this work.
@@ -2149,3 +2150,22 @@ Production assurance completion remains fixed disabled. Task 1.7a and Task 1.14
 remain complete; Task 1.7b remains BLOCKED and must supply reviewed replay-safe
 proof before trusted assurance can be issued. No privileged role, Primary Owner,
 ownership transfer, privileged onboarding or administration is activated.
+
+## Task 1.7b-1 — transactionally consistent two-factor enrollment
+
+Task 1.7a and Task 1.15 remain complete. This subtask adds application-owned
+PostgreSQL generation binding and serialization around native enrollment, its
+confirmation and disable. Pending may replace pending; a verified factor cannot
+be replaced through this flow. Concurrent confirmation/replacement uses database
+ordering and exact setup-material binding. Confirmation preserves the existing
+session's absolute age and issues no assurance.
+
+Production TOTP and recovery-code login remain disabled. Task 1.7b activation,
+verified-factor change/reset and privileged activation require separate review.
+No custom TOTP replay guard or dependency change is included. Task 1.16 has not
+started. The existing upstream limitation and permanent probe remain recorded;
+this enrollment subtask does not resolve or re-analyze that limitation.
+
+Task 1.7b-1 implementation and required local validation are complete and awaiting
+review; changes remain uncommitted. This does not mark production login activation
+or the broader Task 1.7b complete.
