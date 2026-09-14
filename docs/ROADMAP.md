@@ -2126,3 +2126,16 @@ exists; no church-wide substitute, automatic assignment or public management API
 is enabled. They are not fully operational roles yet. Main Church Administrator
 remains blocked behind Task 1.7b/privileged assurance; Primary Owner and Platform
 Superadmin remain outside tenant standard-role provisioning.
+
+## Task 1.14 mapping
+
+Task 1.14 — Church Verification State Foundation maps to Phase 1J. It implements
+the five-state domain policy and internal tenant-side request persistence only.
+Platform approval/rejection/revocation remain policy-only: platform review
+persistence, reviewer authority, evidence/metadata, audit trail and UI are deferred.
+Verification trust metadata grants no user privilege.
+
+Task 1.7a and Task 1.13 remain complete; Task 1.7b remains BLOCKED. Phase 1H Primary
+Owner activation, Phase 1I onboarding that creates an owner, and Phase 1K privileged
+administration await secure second-factor assurance. Phase 1J's internal metadata
+foundation can proceed without activating any of those capabilities.

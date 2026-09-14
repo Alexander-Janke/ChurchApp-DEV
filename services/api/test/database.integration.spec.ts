@@ -1,3 +1,4 @@
+import { churchVerificationIntegrationTests } from "./support/church-verification.integration.js";
 import { standardRolesIntegrationTests } from "./support/standard-roles.integration.js";
 import { twoFactorIntegrationTests } from "./support/two-factor.integration.js";
 import { authorizationIntegrationTests } from "./support/authorization.integration.js";
@@ -345,3 +346,5 @@ tenantHarnessIntegrationTests();
 authorizationIntegrationTests();
 
 standardRolesIntegrationTests();
+
+churchVerificationIntegrationTests();

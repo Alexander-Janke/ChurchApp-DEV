@@ -2252,3 +2252,25 @@ code, without database details.
 No HTTP mutation surface, automatic assignment or production seed is added. Later
 role-management operations still require explicit authorization and audit design;
 this internal provisioning capability must not be exposed to clients directly.
+
+## Task 1.14 church verification security boundary
+
+Church verification is metadata, not authorization. `verified` cannot grant a
+membership, role, permission, session, ownership, MFA assurance or RLS exemption.
+The four Task 1.13 system bundles remain empty and the Task 1.12 permission registry
+is unchanged. Task 1.7b still blocks privileged assurance and activation.
+
+The internal tenant-side request operation has a fixed `pending` destination. It
+requires branded TenantContext, explicit church ID predicates, a transaction-local
+RLS context and the restricted non-owner/NOBYPASSRLS runtime. It locks before
+evaluating current state and updates conditionally; missing/mismatched scope cannot
+change another church. Pending retries preserve updatedAt; invalid transitions
+make no write. Ordinary church details updates cannot accept verificationState.
+
+Only the pure transition policy represents platform approval/rejection/revocation
+now. It does not authorize a caller or execute platform review. Cross-tenant review
+persistence, platform authorization, required audit trail and review metadata are
+deferred together; no production bypass or fake superadmin has been introduced.
+The policy and test-only concurrency probe must not be mistaken for an activated
+review workflow. No request/review HTTP API exists; future exposed actions require
+reviewed entitlement and audit integration. Failures expose no driver diagnostics.

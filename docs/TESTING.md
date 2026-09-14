@@ -2216,3 +2216,32 @@ administration; protected behavior is exercised and asserted through restricted
 tenant transactions. The existing 0000–0006 migration chain is applied to clean
 disposable databases and repeated without changing provisioned roles. There is no
 Task 1.13 migration. Better Auth-owned schema comparison remains unchanged.
+
+## Task 1.14 church verification tests
+
+`church-verification.spec.ts` covers all five states, invalid input, all 25 state
+pairs (six permitted, fourteen forbidden, five unchanged), request/review action
+classification, ordinary-details protected-field rejection and the narrow internal
+service/repository surface. ChurchModule remains unmounted with no controllers.
+
+`support/church-verification.integration.ts` uses the Task 1.11 disposable tenant
+harness and restricted NOBYPASSRLS/non-owner connections. It tests defaults, scoped
+request transitions, timestamp/no-op behavior, status independence, rejection and
+revocation retries, known foreign IDs, missing/mismatched scope, rollback and pooled
+context cleanup. Two actual database connections synchronize before concurrent
+operations: duplicate requests produce one changed/one unchanged result, while
+competing review compare-and-set probes produce one changed/one stale result.
+
+Review SQL exists only as a test primitive, explicitly scoped and run through the
+restricted transaction boundary. It tests the domain policy and PostgreSQL atomic
+update behavior; it is not a production platform review service or authorization
+proof. Global session/2FA-state preservation observations receive only explicit
+column-level SELECT grants in the disposable fixture. No auth write permission or
+production grant is added. Tenant assertions remain under the restricted runtime.
+Verification preserves memberships, roles, grants, assignments and global session/
+2FA state; it does not broaden effective permissions or tenant visibility.
+
+The unchanged 0000–0006 migration chain is applied cleanly and repeated, preserving
+verification state and seven journal entries. All prior church, membership,
+authorization, standard-role and authentication suites remain required. Pinned
+Better Auth 1.7.4 schema generation must remain identical. No Task 1.14 migration.

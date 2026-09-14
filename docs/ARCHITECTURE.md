@@ -1776,11 +1776,11 @@ no slug routes exist now. Nullable structured address limits match profile conve
 nullable text limited to 120 code points. Logo is a nullable HTTPS reference (2048
 characters, no embedded credentials); no backend fetch or upload exists. Lifecycle
 status is active/inactive (default active), independently of verification state
-unverified/pending/verified/rejected/revoked (default unverified). No lifecycle or
-verification transition API is implemented. Both timestamps are UTC instants.
+unverified/pending/verified/rejected/revoked (default unverified). No public lifecycle
+or verification transition API is implemented. Both timestamps are UTC instants.
 
-ChurchModule is an internal, unmounted Nest module exporting ChurchService, with no
-controllers or client contracts. Its repository requires both TenantContext and a
+ChurchModule is an internal, unmounted Nest module exporting ChurchService and
+ChurchVerificationService, with no controllers or client contracts. Its repository requires both TenantContext and a
 transaction handle and always predicates on church.id. Reads return internal data,
 not a public DTO. Details updates explicitly map fields, never accept ID/status/
 verification-state mutation, and replace nullable details as a complete internal
@@ -2030,3 +2030,59 @@ object authorization or child operational scope, safeguarding and auditing exist
 Main Church Administrator remains blocked on Task 1.7b and privileged assurance;
 Primary Owner remains a protected ownership relationship; Platform Superadmin
 remains platform-scoped. None is provisioned here.
+
+## Task 1.14: Church Verification State Foundation
+
+Task 1.14 maps to Phase 1J and reuses `church.verificationState` unchanged. It is
+church trust metadata, never user authorization or MFA assurance:
+
+| State | Meaning |
+| --- | --- |
+| `unverified` | Default; no submitted/active verification request, no verified status. |
+| `pending` | Requested and awaiting review; not verified. |
+| `verified` | Review succeeded; future presentation may display verified status. |
+| `rejected` | Submitted request was rejected; not verified. |
+| `revoked` | Previously verified status was explicitly withdrawn; not verified. |
+
+The centralized `church-verification-policy.ts` permits exactly:
+
+| From | To | Action class |
+| --- | --- | --- |
+| `unverified` | `pending` | Church-side request |
+| `rejected` | `pending` | Church-side request |
+| `revoked` | `pending` | Church-side request |
+| `pending` | `verified` | Platform review |
+| `pending` | `rejected` | Platform review |
+| `verified` | `revoked` | Platform review |
+
+All other different-state pairs return `invalid_transition`; unknown states throw
+a sanitized validation error. Every same-state pair returns `unchanged`. The
+policy's request/review classification is descriptive, not a caller capability.
+
+`ChurchVerificationService.requestVerification(context)` is exported only through
+the internal, unmounted ChurchModule. It uses trusted TenantContext and the existing
+TenantDatabase transaction. The repository accepts no destination state or caller-
+supplied church ID: it locks the explicitly scoped church row, evaluates the policy
+for `pending`, and conditionally updates that row's verificationState/updatedAt.
+A real transition returns `changed`; pending returns `unchanged` without a timestamp
+write; verified returns `invalid_transition`. Missing/invisible church returns
+`not_found`; a lost conditional update returns `stale`. Database failures are
+sanitized without driver causes. No generic state setter is exported.
+
+Concurrent duplicate requests serialize so only one changes the row. Existing
+details updates continue rejecting verificationState/status/ownership input.
+Church status is independent: an inactive church can remain verified. Verification
+changes no membership, role, grant, session, assurance or ownership state.
+
+Platform review is pure domain policy only in production. Its persistence, actor
+authorization, reviewer metadata/evidence and mandatory audit workflow await the
+platform administration architecture. A test-only scoped compare-and-set primitive
+proves one winner for competing verified/rejected decisions without shipping a
+cross-tenant mutation path. There is no superuser/BYPASSRLS runtime, platform admin
+flag, HTTP endpoint, review queue, onboarding, ownership or badge UI. Future request
+callers must authorize the specific action before constructing scope; future review
+must add platform authority, concurrency and audit controls before activation.
+
+No schema, migration, permission key or standard-role change is required. Task 1.7b
+remains blocked; Phase 1H ownership, Phase 1I owner-creating onboarding and Phase 1K
+privileged administration remain deferred while this metadata foundation proceeds.

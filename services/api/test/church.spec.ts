@@ -148,11 +148,16 @@ describe("church policy and trusted scope", () => {
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
   });
-  it("repository exposes only scoped read/update operations", () => {
+  it("repository exposes only scoped details and specialized request operations", () => {
     expect(
       Object.getOwnPropertyNames(ChurchRepository.prototype).sort(),
     ).toEqual(
-      ["constructor", "getCurrentChurch", "updateCurrentChurch"].sort(),
+      [
+        "constructor",
+        "getCurrentChurch",
+        "updateCurrentChurch",
+        "requestVerification",
+      ].sort(),
     );
   });
 });
