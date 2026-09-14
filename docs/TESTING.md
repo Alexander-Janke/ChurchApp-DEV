@@ -2031,3 +2031,29 @@ schema. Application-owned email_change_request and user_profile are separately
 exported by the application schema index, never added to generator-owned auth.ts.
 TOTP remains blocked; these profile tests do not simulate verified 2FA or
 authorize privileged capabilities.
+
+## Task 1.9 restricted-role church tests
+
+The canonical api:test:db suite adds a unique church_test database and a generated
+church_runtime LOGIN role. DATABASE_URL identifies the fixture/migration connection
+and must permit disposable database and role creation (the existing local/CI role
+does). Generated runtime credentials exist only in test memory; both role and
+database are removed afterward. Tests assert current_user=session_user equals that
+restricted login, role privilege flags are false, and it is not the table owner or
+a member of the owner role. A positive tenant-boundary rejection test intentionally
+uses the privileged fixture connection; it never claims to prove RLS.
+
+Release-blocking coverage includes scoped and raw broad reads/writes, missing/invalid
+scope, repository A with database B, WITH CHECK, cross-tenant deletion, forbidden
+TRUNCATE/RLS disabling, explicit predicates independently of RLS, canonical slug
+constraints/conflicts, commit and rollback on reused connections, thrown/SQL errors,
+and concurrent A/B transactions on distinct connections. Prior auth/profile/email
+security suites remain required. Tenant fixtures are churches only, without invented
+users' memberships, administrative roles or ownership entitlements.
+
+Clean migrations now include 0000_auth_foundation, 0001_email_change_workflow,
+0002_user_profile and 0003_church_tenant_foundation. Upgrade coverage preserves existing
+auth/profile/email-change data and repeats migration without duplicate application.
+Fast tests cover canonical field policies, enums, context branding and malformed
+scope rejection. Better Auth 1.7.4 generation must still reproduce auth.ts unchanged;
+all three application-owned tables stay outside the library generator.

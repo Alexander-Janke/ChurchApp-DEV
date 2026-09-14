@@ -299,6 +299,11 @@ Do not expose all profile fields automatically.
 
 # 8. Phase 1C – Church/Tenant Model
 
+Task 1.9 — Church/Tenant Model & Isolation Foundation maps to Phase 1C.
+This internal foundation includes trusted context, explicit scoping and restricted-role
+RLS tests. Memberships, ownership, administration and public endpoints remain deferred;
+Task 1.7 remains blocked and privileged capabilities remain unavailable.
+
 Implement the church tenant model.
 
 One church equals one tenant.

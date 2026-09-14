@@ -2,3 +2,4 @@
 export * from "./auth.js";
 export * from "./email-change.js";
 export * from "./user-profile.js";
+export * from "./church.js";

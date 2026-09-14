@@ -2077,3 +2077,32 @@ Public visibility, directories and privacy controls remain separate future work.
 Task 1.7 remains blocked by Better Auth issue #10387 (the reproduced TOTP replay
 behavior in 1.7.4). No two-factor plugin, schema, migration, replay workaround,
 fake assurance, or privileged bypass is added by Task 1.8.
+
+## Task 1.9 tenant isolation foundation
+
+Church root access requires trusted server scope, explicit repository predicates,
+and transaction-local PostgreSQL RLS together. Route/body identifiers are requests,
+never entitlement. No church administration, creation, public record serialization,
+membership, owner or permission endpoint exists. Task 1.7 remains blocked; privileged
+capabilities cannot be enabled until their TOTP/assurance prerequisites exist.
+
+The single church policy constrains reads and writes with USING and WITH CHECK;
+ENABLE and FORCE RLS are migration-owned. An absent/empty/mismatched context discloses
+or mutates no row. Runtime credentials must not be superuser, BYPASSRLS, table owner
+or a role able to assume ownership. TenantDatabase checks these restrictions and
+CREATEROLE on each protected transaction, using the same connection as the query.
+It never stores a session-wide tenant setting. Role/setup errors fail closed; no
+tenant values or connection strings are included in application diagnostics.
+
+RLS supplements authorization and does not establish user entitlement. An arbitrary
+application role able to set a GUC could choose a different context; trusted context
+creation and future operation-specific authorization therefore remain essential.
+The internal repository is infrastructure, not a public authorization API.
+
+The local/CI fixture role can migrate/create disposable databases and restricted
+test logins, but does not execute assertions claimed to prove RLS. Actual restricted
+connections independently test broad SQL as well as repository scoping. Runtime
+receives no TRUNCATE, ownership or schema CREATE rights; TRUNCATE is not RLS-filtered.
+Uniqueness constraints can reveal a conflict even when the conflicting row is hidden;
+future public mutation APIs must sanitize conflicts without revealing private records.
+No shared credentials, tenant role policy, or RLS bypass is granted to clients.

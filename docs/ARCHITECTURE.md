@@ -1759,3 +1759,60 @@ The database unique username index decides concurrent claims; conflicts return
 409 without identifying the other user. Profile mutation does not touch accounts
 or session rows; ordinary session resolution may still perform its configured
 rolling refresh without resetting the absolute lifetime.
+
+## Task 1.9: Church/Tenant Model & Isolation Foundation
+
+Task 1.9 maps to Phase 1C. One church is one tenant: application-owned `church.id`
+is the tenant key, with no separate tenant table. Future tenant children require
+non-null `church_id` and appropriate ownership constraints. Better Auth identities,
+email_change_request and user_profile retain their existing ownership.
+
+The root uses application-generated random UUID text IDs; name is trimmed Unicode
+(maximum 200 code points). Slugs are lowercase ASCII, 3–63 characters with interior
+hyphens, enforced by a unique index and canonical check. No whitespace folding or
+hyphen collapsing is performed. Complete reserved-slug validation belongs to Phase 2B;
+no slug routes exist now. Nullable structured address limits match profile conventions
+(200/200/32/120/120/2); countryCode uses uppercase two-letter syntax. Denomination is
+nullable text limited to 120 code points. Logo is a nullable HTTPS reference (2048
+characters, no embedded credentials); no backend fetch or upload exists. Lifecycle
+status is active/inactive (default active), independently of verification state
+unverified/pending/verified/rejected/revoked (default unverified). No lifecycle or
+verification transition API is implemented. Both timestamps are UTC instants.
+
+ChurchModule is an internal, unmounted Nest module exporting ChurchService, with no
+controllers or client contracts. Its repository requires both TenantContext and a
+transaction handle and always predicates on church.id. Reads return internal data,
+not a public DTO. Details updates explicitly map fields, never accept ID/status/
+verification-state mutation, and replace nullable details as a complete internal
+value. There is no unrestricted list or creation method.
+
+TenantContext.fromAuthorizedScope is a server-only construction seam for future
+trusted authorization code, not an entitlement check. The immutable runtime-branded
+object cannot be replaced by deserialized JSON. The constructor validates UUID syntax
+only; it must never be called from an HTTP tenant ID before checking entitlement.
+No production caller currently creates a church context. Membership, permission,
+object-policy and assurance checks remain prerequisites for future exposed operations.
+
+TenantDatabase uses DatabaseService.transaction and the same Drizzle handle for
+parameterized set_config('app.current_church_id', value, true) and every protected
+query. It rejects superuser, BYPASSRLS, CREATEROLE, owner/owner-membership credentials,
+or disabled/unforced RLS before setting scope. ChurchService owns this orchestration;
+the lower-level repository never resets the supplied RLS context, so a repository-A/
+database-B mismatch returns no data or mutation. Commit/rollback clears local context.
+
+Migration 0003_church_tenant_foundation creates only church, its constraints/index,
+ENABLE RLS and a policy with identical USING/WITH CHECK matching id to the nonempty
+transaction-local setting. The explicit FORCE ROW LEVEL SECURITY statement is reviewed
+PostgreSQL SQL because Drizzle does not represent FORCE in its snapshot. Preserve it
+in migration history. Missing/invalid scope matches no row. No grants to PUBLIC or
+runtime role creation are included in application migrations.
+
+Local church_dev and CI postgres are privileged fixture/migration connections, not
+valid tenant runtimes. The new test harness creates a unique disposable database
+and a distinct LOGIN role with NOSUPERUSER/NOBYPASSRLS/NOCREATEROLE/NOCREATEDB,
+no owner membership, and only CONNECT, schema USAGE, and church SELECT/INSERT/UPDATE/
+DELETE grants. Protected assertions connect directly as that role; they never rely
+on a superuser session pretending to be restricted. Before any tenant endpoint or
+deployment, provision separate restricted runtime credentials and narrowly reviewed
+grants for required tables. Existing local credentials will fail the tenant gate;
+global auth/profile development behavior is unchanged.
