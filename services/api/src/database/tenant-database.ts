@@ -20,17 +20,20 @@ export class TenantDatabase {
           pg_has_role(current_user, c.relowner, 'MEMBER') as owns,
           c.relrowsecurity, c.relforcerowsecurity
         from pg_roles r cross join pg_class c
-        where r.rolname = current_user and c.oid = 'public.church'::regclass
+        where r.rolname = current_user and c.oid in ('public.church'::regclass, 'public.church_membership'::regclass)
       `);
-      const role = result.rows[0];
+
       if (
-        !role ||
-        role.rolsuper ||
-        role.rolbypassrls ||
-        role.rolcreaterole ||
-        role.owns ||
-        !role.relrowsecurity ||
-        !role.relforcerowsecurity
+        result.rows.length !== 2 ||
+        result.rows.some(
+          (role) =>
+            role.rolsuper ||
+            role.rolbypassrls ||
+            role.rolcreaterole ||
+            role.owns ||
+            !role.relrowsecurity ||
+            !role.relforcerowsecurity,
+        )
       )
         throw new Error(
           "Restricted tenant database role and enforced RLS required",

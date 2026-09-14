@@ -1816,3 +1816,45 @@ on a superuser session pretending to be restricted. Before any tenant endpoint o
 deployment, provision separate restricted runtime credentials and narrowly reviewed
 grants for required tables. Existing local credentials will fail the tenant gate;
 global auth/profile development behavior is unchanged.
+
+## Task 1.10: Tenant Membership Foundation
+
+Task 1.10 maps to Phase 1D. The application-owned `church_membership` represents
+a platform user's relationship to a church, not an administrative role. Its six
+required fields are opaque random UUID text `id`, text `church_id` and `user_id`,
+text `status`, and timestamptz `created_at`/`updated_at`. Status is explicitly
+supplied and constrained to follower, member, inactive or left. No state grants
+administration or ownership. The global Better Auth user schema stays unchanged.
+
+Both foreign keys cascade on deletion: a relationship cannot outlive either its
+church or its global user. UNIQUE (church_id, user_id) permits multiple churches
+per user but one retained relationship per pair. UNIQUE (church_id, id) supports
+future tenant-safe composite foreign keys without adding a second identity.
+The user_id index supports user-deletion cascades; tenant-prefixed indexes support
+scoped lookup and pagination. No history, owner, role or workflow columns exist.
+
+The unmounted MembershipModule exposes only an internal service. Creation derives
+church_id from trusted TenantContext and accepts only userId/status. Reads select
+relationship fields only, without joining private user data. ID/user lookups,
+keyset pagination (default 50, maximum 100), and state updates always include an
+explicit church_id predicate and use the existing TenantDatabase transaction.
+
+A centralized transition boundary validates both expected and next state. All four
+states are structurally representable; an expected-state conditional update prevents
+a stale transition overwriting a concurrent change. Same-state updates are allowed.
+No authoritative product transition matrix is invented: future workflows must
+authorize each transition before using this internal boundary. Inactive/left retain
+the same row, ID and creation time; mutation updates updatedAt. Duplicate creation
+returns `already_exists`; missing/foreign/stale transitions return null. Other
+service failures are sanitized without SQL or identifiers in diagnostics.
+
+Migration `0004_tenant_membership_foundation` adds only this table, constraints,
+indexes and tenant policy. ENABLE/FORCE RLS require church_id to equal transaction-local
+app.current_church_id in both USING and WITH CHECK. The existing TenantDatabase
+role/policy check now covers both church and church_membership on the same connection.
+No new context mechanism or grants to ordinary/public users are introduced.
+
+TenantContext describes trusted scope, not user entitlement; a user selector is not
+authorization. There is no membership HTTP API, follower API, member directory,
+onboarding, administration, role/permission or Primary Owner functionality. Task 1.7
+remains blocked and no privileged capability or TOTP workaround is enabled.

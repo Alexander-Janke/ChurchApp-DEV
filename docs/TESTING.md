@@ -2057,3 +2057,30 @@ auth/profile/email-change data and repeats migration without duplicate applicati
 Fast tests cover canonical field policies, enums, context branding and malformed
 scope rejection. Better Auth 1.7.4 generation must still reproduce auth.ts unchanged;
 all three application-owned tables stay outside the library generator.
+
+## Task 1.10 membership regression coverage
+
+Fast tests cover the four structural states, rejected invalid/protected input,
+opaque IDs, bounded keyset pagination, explicit tenant/ID/expected-state predicates,
+context-derived creation, safe duplicate results, retained row identity and sanitized
+service failures. They do not model roles or authorize product workflows.
+
+The canonical api:test:db suite includes disposable membership_test databases and
+membership_runtime LOGIN roles following the Task 1.9 harness. Actual protected
+queries use NOSUPERUSER/NOBYPASSRLS/non-owner connections; privileged credentials
+only prepare fixtures/migrations and exercise explicit negative role checks.
+Minimum relationship fixtures are Church A/B and User A/B, without administrators.
+
+Release-blocking coverage includes independent broad SQL RLS, explicit repository
+scope, known foreign IDs, A-repository/B-RLS mismatch, WITH CHECK inserts/ownership
+rewrite, missing context, foreign keys, cascade, unique-pair concurrency, expected-state
+update concurrency, ID/creation-time retention, commit/rollback/errors/pool reuse
+and simultaneous A/B transactions. Tests also reject missing FORCE RLS or membership
+table ownership at the shared boundary. Disposable databases/roles are removed afterward.
+
+Migrations run 0000_auth_foundation, 0001_email_change_workflow, 0002_user_profile,
+0003_church_tenant_foundation, then 0004_tenant_membership_foundation. A representative
+upgrade preserves auth/email-change/profile/church data; repeat migration preserves
+relationship data and records exactly five applied entries. Existing security suites
+remain mandatory. Pinned Better Auth 1.7.4 generation must still reproduce its core
+schema unchanged; church_membership remains application-owned.

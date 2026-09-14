@@ -148,7 +148,7 @@ export function churchIntegrationTests() {
       }
     });
     beforeEach(async () => {
-      await owner.query("TRUNCATE church");
+      await owner.query("TRUNCATE church CASCADE");
       await owner.query(
         "INSERT INTO church(id,name,slug) VALUES ($1,$2,$3),($4,$5,$6)",
         [a, "Church A", "church-a", b, "Church B", "church-b"],
@@ -169,7 +169,7 @@ export function churchIntegrationTests() {
         ].sort((x, y) => x.id.localeCompare(y.id)),
       );
     }
-    it("applies 0000 through 0003 and repeats without altering existing identity/profile/email-change data", async () => {
+    it("applies 0000 through 0004 and repeats without altering existing identity/profile/email-change data", async () => {
       const before = (
         await owner.query(
           'SELECT row_to_json(u) u, row_to_json(p) p, row_to_json(e) e FROM "user" u JOIN user_profile p ON p.user_id=u.id JOIN email_change_request e ON e.user_id=u.id',
@@ -191,7 +191,7 @@ export function churchIntegrationTests() {
             "select count(*)::int n from drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(4);
+      ).toBe(5);
     });
     it("runs protected assertions under a non-owner login without superuser, BYPASSRLS or role-creation privileges", async () => {
       const r = (

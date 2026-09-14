@@ -29,6 +29,13 @@
       "when": 1789379225929,
       "tag": "0003_church_tenant_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789381633947,
+      "tag": "0004_tenant_membership_foundation",
+      "breakpoints": true
     }
   ]
 }

@@ -328,6 +328,11 @@ Introduce explicit repository scoping, transaction-local RLS, ownership constrai
 
 # 9. Phase 1D – Tenant Membership
 
+Task 1.10 — Tenant Membership Foundation maps to Phase 1D. It adds the internal
+tenant-scoped relationship model, constraints and restricted-role RLS tests.
+Membership workflows, follow/unfollow, directory, roles/permissions, Primary Owner
+and HTTP APIs remain deferred. Task 1.7 remains BLOCKED; no TOTP workaround exists.
+
 Implement relationships between users and churches.
 
 Base states:

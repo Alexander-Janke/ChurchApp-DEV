@@ -2106,3 +2106,26 @@ receives no TRUNCATE, ownership or schema CREATE rights; TRUNCATE is not RLS-fil
 Uniqueness constraints can reveal a conflict even when the conflicting row is hidden;
 future public mutation APIs must sanitize conflicts without revealing private records.
 No shared credentials, tenant role policy, or RLS bypass is granted to clients.
+
+## Task 1.10 relationship isolation
+
+Membership persistence requires the existing trusted TenantContext, explicit
+church_id predicates and transaction-local RLS together. The internal module is
+unmounted; no client can select an authorized context or mutate relationships.
+Future callers must establish operation-specific entitlement, including when
+selecting a different global user. Relationship states are not roles or permission
+grants; protected capabilities still require the blocked Task 1.7 prerequisites.
+
+Both tenant tables are checked for ENABLE/FORCE RLS and runtime ownership/privileges
+before tenant work. Runtime must be NOSUPERUSER, NOBYPASSRLS and neither owner nor
+member of an owner role. Missing/invalid scope yields no rows; mismatched repository
+and RLS scope cannot disclose or mutate either church's relationships. WITH CHECK
+also rejects inserted/rewritten foreign ownership. Transaction context is local
+and cannot survive commit, rollback, application/SQL errors or pool reuse.
+
+Creation rejects churchId and all unknown fields. The database unique pair prevents
+concurrent duplicates; an existing-pair outcome reveals no private user fields.
+Expected-state updates retain identity and reject stale transitions without exposing
+foreign records. No service diagnostics contain SQL parameters, credentials, session
+data or private profiles. Global-user and church deletion cascade relationships;
+no standalone relationship deletion or administrative endpoint is exposed.
