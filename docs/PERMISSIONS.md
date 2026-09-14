@@ -1935,3 +1935,19 @@ Primary Owner does not imply the administrator role or wildcard permissions.
 Generic mutation cannot rename/delete a canonical system role or edit its bundle.
 No public administration endpoints are added. Security-sensitive settings, deletion,
 role delegation and platform administration require separate future policy review.
+
+## Task 1.20 — approved Phase 1K operation scope
+
+`church.settings.manage` permits ordinary church-settings PATCH only, with mandatory
+atomic administrative audit. `members.manage` permits tenant-scoped read-only
+membership listing only (membership ID, user ID, relationship status). It grants no
+private-profile access. Membership activation/deactivation, follower/member workflows,
+status PATCH and deletion require a separate reviewed policy and remain deferred.
+Consequently this API cannot change the Primary Owner's membership or relationship.
+
+Both permissions retain current member eligibility, enabled/verified 2FA and exact
+session elevation (15-minute inactivity, eight-hour absolute). No recent critical
+step-up is required. Custom roles have the same requirements. Ownership alone grants
+neither capability. Reads never refresh elevation; only an actual successful audited
+settings mutation records privileged activity atomically. No automatic role assignment,
+roles.manage, ownership transfer, deletion or security-sensitive settings are enabled.

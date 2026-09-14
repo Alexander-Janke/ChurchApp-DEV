@@ -76,46 +76,57 @@ export class SessionAssuranceService {
   async recordSuccessfulPrivilegedActivity(subject: SessionSubject) {
     try {
       return await this.database.transaction(async (tx) => {
-        const [current] = await tx
-          .select({
-            createdAt: session.createdAt,
-            expiresAt: session.expiresAt,
-          })
-          .from(session)
-          .where(
-            and(
-              eq(session.id, subject.sessionId),
-              eq(session.userId, subject.userId),
-            ),
-          )
-          .for("share");
-        if (!current) return false;
-        const [state] = await tx
-          .select()
-          .from(sessionAssurance)
-          .where(eq(sessionAssurance.sessionId, subject.sessionId))
-          .for("update");
-        // Take time AFTER the lock: lock wait cannot renew an expired elevation.
-        const now = this.policy.now();
-        if (
-          !state ||
-          !new AssurancePolicy(() => now).evaluate(current, state).elevated
-        )
-          return false;
-        await tx
-          .update(sessionAssurance)
-          .set({
-            lastElevatedActivityAt: new Date(
-              Math.max(now, state.lastElevatedActivityAt!.getTime()),
-            ),
-            updatedAt: new Date(Math.max(now, state.updatedAt.getTime())),
-          })
-          .where(eq(sessionAssurance.sessionId, subject.sessionId));
-        return true;
+        return this.recordSuccessfulPrivilegedActivityInTransaction(
+          subject,
+          tx,
+        );
       });
     } catch {
       throw new Error("Assurance activity update failed");
     }
+  }
+
+  // Caller commits activity together with the successful business mutation/audit.
+  async recordSuccessfulPrivilegedActivityInTransaction(
+    subject: SessionSubject,
+    tx: DatabaseTransaction,
+  ) {
+    const [current] = await tx
+      .select({
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+      })
+      .from(session)
+      .where(
+        and(
+          eq(session.id, subject.sessionId),
+          eq(session.userId, subject.userId),
+        ),
+      )
+      .for("share");
+    if (!current) return false;
+    const [state] = await tx
+      .select()
+      .from(sessionAssurance)
+      .where(eq(sessionAssurance.sessionId, subject.sessionId))
+      .for("update");
+    // Take time AFTER the lock: lock wait cannot renew an expired elevation.
+    const now = this.policy.now();
+    if (
+      !state ||
+      !new AssurancePolicy(() => now).evaluate(current, state).elevated
+    )
+      return false;
+    await tx
+      .update(sessionAssurance)
+      .set({
+        lastElevatedActivityAt: new Date(
+          Math.max(now, state.lastElevatedActivityAt!.getTime()),
+        ),
+        updatedAt: new Date(Math.max(now, state.updatedAt.getTime())),
+      })
+      .where(eq(sessionAssurance.sessionId, subject.sessionId));
+    return true;
   }
 
   async invalidateSession(subject: SessionSubject) {

@@ -2447,3 +2447,29 @@ bundles and every downstream failure rollback check. Clean/repeated migrations r
 0000 through 0009; no new migration or Better Auth schema change belongs to this task.
 Run all canonical repository checks, including clients, Flutter and Playwright, before
 marking Task 1.19 ready for review. The permanent #10387 accepted-limitation probe remains.
+
+## Task 1.20 — administration API and admin audit
+
+`test/church-admin.spec.ts` covers strict canonical PATCH validation, protected fields,
+pagination, explicit privacy-safe mapping and bounded mutation limiting.
+`test/support/church-admin.integration.ts` exercises the mounted AppModule with real
+Better Auth cookie resolution and disposable restricted PostgreSQL. Factor/assurance
+fixtures remain test-process-only; no production proof issuer or bypass is introduced.
+
+Coverage includes both permission gates, exact-session isolation, factor loss,
+inactive/follower/left denial, exact 15-minute/eight-hour boundaries, custom roles,
+no owner-only grant, foreign/nonexistent/locked-foreign scopes, strict Origin,
+protected input, safe slug conflicts, concurrent partial updates, no-op semantics,
+bounded member pagination, no private fields and absent mutation/assignment/owner APIs.
+Reads and failures do not refresh assurance. Permission removal and elevation expiry
+while waiting on a church lock are rechecked before mutation.
+
+Audit tests verify settings/audit/activity atomicity, forced PostgreSQL audit failure,
+activity-write failure, value-free field metadata, tenant/missing/mismatched RLS
+contexts, restricted roles, append-only behavior and retention after actor deletion.
+Migration 0010 adds only admin audit. Tests preserve pre-0010 auth, church, membership,
+role/permission and owner/audit data on upgrade and repeat the runner without changes.
+Existing total-history assertions advance from ten to eleven migrations; all prior
+security assertions, five canonical onboarding roles and zero assignments remain.
+Run the full contracts/API/PostgreSQL/web/admin/Flutter/Playwright suite, Drizzle check,
+pinned Better Auth core-schema comparison, formatting and diff checks before review.

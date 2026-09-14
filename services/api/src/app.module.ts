@@ -1,3 +1,4 @@
+import { ChurchAdminModule } from "./church-admin/church-admin.module.js";
 import { OnboardingHttpModule } from "./onboarding/onboarding-http.module.js";
 import { ProfileModule } from "./profile/profile.module.js";
 import { Module } from "@nestjs/common";
@@ -12,6 +13,7 @@ import { HealthModule } from "./health/health.module.js";
     HealthModule,
     ProfileModule,
     OnboardingHttpModule,
+    ChurchAdminModule,
   ],
 })
 export class AppModule {}

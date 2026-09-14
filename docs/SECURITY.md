@@ -2507,3 +2507,35 @@ still assigns none to the creator. Missing keys are restored, stray keys removed
 custom/foreign-tenant grants are untouched. No startup seeding, RLS bypass, schema,
 TOTP behavior or dependency changes are introduced. The documented temporary
 `better-auth/better-auth#10387` acceptance is unchanged.
+
+## Task 1.20 — audited settings and read-only member administration
+
+Both administration routes require a current member relationship, their exact
+permission, current enabled/verified 2FA and database-authoritative exact-session
+elevation. Custom roles obey the same metadata. Primary Owner is not a wildcard
+grant. Member listing is read-only, exposes only membership ID/user ID/status and
+cannot change the owner's membership or ownership. All membership mutation workflows
+remain deferred; this decision resolves the earlier Phase 1K scope ambiguity.
+
+Settings PATCH rejects protected fields and requires exact trusted Origin. Candidate
+tenant lookups use explicit predicates and transaction-local RLS; entitlement is
+checked before resource locks and rechecked under locks. Locked foreign tenants
+cannot be distinguished by a resource-lock failure. Factor/session/membership/grant
+revocation is uncached. Lock waits are bounded; expiry is evaluated after waits.
+
+`church_settings_updated` is written to separate append-only `church_admin_audit`
+in the SAME transaction as the settings update and successful elevation activity.
+Audit failure rolls back settings; activity failure rolls back settings AND audit.
+Historical actor/session IDs survive ordinary identity/membership deletion. RLS
+includes USING/WITH CHECK and FORCE; restrictive policies prohibit runtime update
+and delete. Audit records contain changed field names only, no payload values or
+secrets. Ownership audit remains restricted to its original events. No audit API.
+
+GET, no-op PATCH, failed validation/authorization/Origin, conflicts and storage
+failures never refresh elevation. Successful mutation does not renew the eight-hour
+absolute proof or five-minute step-up. No new sessions or authentication claims.
+The per-user PATCH limit is 20 attempts/minute with bounded 10,000-identity storage;
+it is single-instance, not distributed. Admin responses are no-store and failures
+are sanitized. Security-critical settings, membership/role mutation, owner transfer,
+church deletion and platform administration are not exposed. The accepted Better
+Auth #10387 limitation and all other existing factor protections remain unchanged.

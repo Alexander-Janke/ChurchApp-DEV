@@ -345,11 +345,12 @@ export class AuthorizationRepository {
     tx: DatabaseTransaction,
     membershipId: string,
     key: unknown,
+    lock = false,
   ): Promise<boolean> {
     TenantContext.assert(context);
     if (!isPermissionKey(key)) return false;
     // One current DB snapshot; no role-name checks or cache.
-    const [row] = await tx
+    const query = tx
       .select({ status: membership.status })
       .from(membership)
       .innerJoin(
@@ -384,6 +385,7 @@ export class AuthorizationRepository {
         ),
       )
       .limit(1);
+    const [row] = await (lock ? query.for("share") : query);
     return !!row && membershipAllowsPermission(row.status, key);
   }
 }

@@ -71,6 +71,13 @@
       "when": 1789408327468,
       "tag": "0009_primary_owner_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789420514793,
+      "tag": "0010_church_admin_audit_foundation",
+      "breakpoints": true
     }
   ]
 }

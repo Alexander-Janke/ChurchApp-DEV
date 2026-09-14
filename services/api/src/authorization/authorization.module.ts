@@ -7,7 +7,7 @@ import { TenantDatabase } from "../database/tenant-database.js";
 import { AuthorizationRepository } from "./authorization.repository.js";
 import { AuthorizationService } from "./authorization.service.js";
 
-// Deliberately unmounted. No controller, public assignment endpoint or role seed.
+// Shared internal services. No controller, public assignment endpoint or role seed.
 @Module({
   imports: [DatabaseModule, AssuranceModule],
   providers: [

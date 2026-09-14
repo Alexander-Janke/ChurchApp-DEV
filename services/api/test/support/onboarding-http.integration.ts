@@ -513,7 +513,7 @@ export function onboardingHttpIntegrationTests() {
         }
       },
     );
-    it("clean chain through 0009 repeats without mutating HTTP-created onboarding", async () => {
+    it("clean chain through 0010 repeats without mutating HTTP-created onboarding", async () => {
       cookie = await activate();
       const res = await post().expect(201);
       expect(
@@ -522,7 +522,7 @@ export function onboardingHttpIntegrationTests() {
             "select count(*)::int n from drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(10);
+      ).toBe(11);
       await migrateFixture(f.fixturePool);
       expect(
         (
@@ -530,7 +530,7 @@ export function onboardingHttpIntegrationTests() {
             "select count(*)::int n from drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(10);
+      ).toBe(11);
       expect(await counts()).toEqual([1, 1, 5, 2, 0, 1, 1]);
       await complete(res.body.church.id);
     });

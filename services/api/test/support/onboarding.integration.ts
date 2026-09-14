@@ -554,7 +554,7 @@ export function onboardingIntegrationTests() {
         ).rows[0].n,
       ).toBe(0);
     });
-    it("clean and repeated migrations stop at 0009 and preserve completed onboarding", async () => {
+    it("clean and repeated migrations stop at 0010 and preserve completed onboarding", async () => {
       const created = await create();
       const before = await counts();
       await migrateFixture(f.fixturePool);
@@ -567,7 +567,7 @@ export function onboardingIntegrationTests() {
             "SELECT count(*)::int n FROM drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(10);
+      ).toBe(11);
     });
   });
 }

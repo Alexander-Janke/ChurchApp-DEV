@@ -480,7 +480,7 @@ export function mainChurchAdministratorIntegrationTests() {
             "select count(*)::int n from drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(10);
+      ).toBe(11);
     });
     it("custom collision at the fifth canonical label rolls back provisioning without adopting it", async () => {
       await f.fixturePool.query("delete from church_role where church_id=$1", [

@@ -631,7 +631,7 @@ export function twoFactorIntegrationTests() {
       expect(await sessions()).toEqual(before);
       expect(await current(await challenge())).toBeNull();
     });
-    it("cascades factor material on user deletion and safely repeats all ten migrations", async () => {
+    it("cascades factor material on user deletion and safely repeats all eleven migrations", async () => {
       await enroll();
       const before = JSON.stringify(await rows());
       await migrate(drizzle(pool), { migrationsFolder: folder });
@@ -642,7 +642,7 @@ export function twoFactorIntegrationTests() {
             "SELECT count(*)::int n FROM drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(10);
+      ).toBe(11);
       await pool.query('DELETE FROM "user" WHERE id=$1', [id]);
       expect(await rows()).toHaveLength(0);
     });

@@ -2453,3 +2453,65 @@ No administrative HTTP route, member/settings mutation, role assignment API, fro
 or assurance issuer is introduced. Primary Owner remains its separate protected
 relationship and predicate; an administrator role cannot replace ownership checks.
 Better Auth 1.7.4 / Nest integration 2.8.0 and the temporary #10387 exception are unchanged.
+
+## Task 1.20 — Base Church Administration API (Phase 1K)
+
+The approved Phase 1K HTTP scope is exactly PATCH
+`/api/v1/churches/:churchId/settings` (`church.settings.manage`) and GET
+`/api/v1/churches/:churchId/members` (`members.manage`). Member administration is
+read-only listing; membership status transitions, creation/deletion, role assignment,
+ownership operations and security-sensitive settings remain deferred. No client UI
+is introduced. Primary Owner alone grants neither permission and cannot be altered
+through either operation.
+
+Both routes resolve the database-authoritative session through AuthSessionReader.
+The server uses the route UUID only as a candidate lookup scope, under transaction-local
+RLS and explicit predicates. The centralized SessionAuthorizationService checks
+current member eligibility, scoped role permissions, enabled/verified 2FA and the
+exact session's elevation before disclosing data or taking resource locks. It
+rechecks after locking authorization-sensitive rows in the operation transaction.
+Unknown/foreign churches return the same denial. Custom roles have identical gates.
+Neither capability requires the separate five-minute critical step-up.
+
+PATCH accepts only name, slug, addressLine1, addressLine2, postalCode, locality,
+region, countryCode, denomination and logo. It reuses canonical Church validation,
+including lowercase slug uniqueness. Omitted fields survive; explicit null clears
+nullable fields. Updates serialize on the scoped church row, preserving independent
+concurrent patches. Empty/unknown/protected input fails. The response explicitly maps
+id, those ten ordinary fields, status and verificationState; the latter two are
+read-only. A normalized no-op changes no timestamp, audit or assurance.
+
+GET returns `{items: [{id, userId, status}], nextCursor}` only. It uses the existing
+membership-ID cursor, default limit 50, maximum 100. A full page returns its last ID
+as nextCursor (the following page may be empty); shorter pages return null. All four
+relationship states may appear for administration. No private profile, factor,
+session, assurance, ownership flag or audit data is joined or returned. GET does not
+refresh elevation and exposes no membership mutation.
+
+The application-owned `church_admin_audit` is separate from ownership audit. Migration
+`0010_church_admin_audit_foundation` adds only this table, its church FK, event/field
+checks, tenant/time index and ENABLE/FORCE RLS with restrictive no-update/no-delete
+policies. Fields are id, churchId, eventType, actorUserId, actorSessionId, changedFields
+and createdAt. The sole event is `church_settings_updated`. Metadata contains only
+sorted distinct changed field names, never old/new values. Actor identifiers are
+historical snapshots without cascading user/membership/session FKs. Church deletion
+may cascade its own history in a future separately authorized workflow.
+
+Settings update, mandatory audit insertion and existing Task 1.15 successful activity
+recording use ONE PostgreSQL transaction/connection. Any error or expiry before
+activity recording rolls all three back. No refresh happens on reads, no-ops,
+validation, denial, conflict, rate limit or storage failure. Elevation remains
+15 minutes inactivity / eight hours absolute; its initial proof and step-up timestamps
+are not moved. Session creation/age and 30-day absolute policy remain unchanged.
+Lock waits are bounded to five seconds. Runtime needs the existing restricted tenant
+DML/row-lock grants plus SELECT/INSERT on admin audit; it must not own/bypass RLS.
+The audit repository additionally verifies its table's enforced RLS/ownership state.
+
+PATCH requires exact configured Origin and uses a bounded per-process sliding limit
+of 20 attempts per authenticated user per minute (10,000 live identities; capacity
+fails closed). GET follows existing safe-read policy with no new Origin requirement
+or limiter. All routed responses use Cache-Control: no-store. Errors map to 400
+invalid input, 401 no valid session, 403 entitlement/Origin denial, 409 slug conflict,
+429 rate limit and sanitized 503 storage failure. No foreign existence-specific 404
+is returned by these collection/settings operations. There is no audit HTTP endpoint.
+Better Auth 1.7.4, Nest integration 2.8.0 and the temporary #10387 exception are unchanged.

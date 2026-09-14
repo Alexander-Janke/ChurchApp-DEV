@@ -2249,6 +2249,15 @@ are excluded and remain separately reviewed work.
 Explicit provisioning and Task 1.17/1.18 onboarding now create five canonical roles
 and zero assignments. The existing four roles remain empty/nonprivileged. Existing
 churches require explicit reconciliation; no startup seed or migration is introduced.
-Primary Owner remains separate. No general administration API or UI is implemented.
-The temporary Better Auth #10387 exception is unchanged. Task 1.19 remains uncommitted
-for review; Task 1.20 is not started or defined here.
+Primary Owner remains separate. Task 1.19 introduced no general administration API
+or UI. The temporary Better Auth #10387 exception is unchanged. Task 1.19 is complete;
+the approved Task 1.20 scope is recorded below.
+
+## Task 1.20 — Base Church Administration API
+
+Maps to Phase 1K. Implemented for review: ordinary church-settings PATCH and read-only
+member administration listing, using the two Task 1.19 privileged permissions.
+Settings mutations include atomic application-owned admin audit. Membership status
+workflows and all membership mutations remain deferred. No frontend administration,
+role assignment, ownership API, deletion or security-sensitive settings are included.
+Task 1.21 is not started. The temporary Better Auth #10387 exception is unchanged.
