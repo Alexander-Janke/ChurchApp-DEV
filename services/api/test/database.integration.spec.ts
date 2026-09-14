@@ -1,3 +1,5 @@
+import { assuranceAuthorizationIntegrationTests } from "./support/assurance-authorization.integration.js";
+import { assuranceIntegrationTests } from "./support/assurance.integration.js";
 import { churchVerificationIntegrationTests } from "./support/church-verification.integration.js";
 import { standardRolesIntegrationTests } from "./support/standard-roles.integration.js";
 import { twoFactorIntegrationTests } from "./support/two-factor.integration.js";
@@ -88,6 +90,8 @@ describe("real PostgreSQL foundation", () => {
   });
 });
 
+assuranceIntegrationTests();
+assuranceAuthorizationIntegrationTests();
 twoFactorIntegrationTests();
 registrationIntegrationTests();
 sessionIntegrationTests();
@@ -177,6 +181,7 @@ describe("Better Auth migrated PostgreSQL schema", () => {
       "church_role_permission",
       "email_change_request",
       "session",
+      "session_assurance",
       "two_factor",
       "user",
       "user_profile",
@@ -185,7 +190,7 @@ describe("Better Auth migrated PostgreSQL schema", () => {
     const journal = await pool.query(
       "SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations",
     );
-    expect(journal.rows[0].count).toBe(7);
+    expect(journal.rows[0].count).toBe(8);
   });
 
   it("starts AuthModule with default schema validation and queries every model through its real adapter", async () => {
@@ -231,6 +236,7 @@ describe("Better Auth migrated PostgreSQL schema", () => {
       "email_change_current_hash_idx",
       "email_change_new_hash_idx",
       "email_change_request_pkey",
+      "session_assurance_pkey",
       "session_pkey",
       "session_token_unique",
       "session_userId_idx",

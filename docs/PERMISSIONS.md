@@ -1862,3 +1862,22 @@ from standard-role names. No permission cache is introduced.
 Canonical provisioning reconciles exact bundles, removing stray grants from these
 four system roles. Generic role mutation cannot rename, delete or edit their
 bundles. No privileged/ownership/platform role is made usable by this foundation.
+
+## Task 1.15 permission-plus-assurance boundary
+
+Permission and assurance are both required, never interchangeable. Immutable
+permission metadata owns `requiresPrivilegedAssurance` and `requiresRecentStepUp`;
+custom role assignments cannot edit these requirements. Unknown/incomplete metadata
+fails closed. Critical requirements demand valid elevation AND proof within five
+minutes. Elevation expires after 15 minutes without qualifying privileged activity
+or eight hours total. No current privileged permission is activated, and the fixed
+production completion gate remains false until Task 1.7b is reviewed.
+
+The internal combined evaluator binds the server-resolved session to its actual
+user and resolves that user's relationship in the scoped tenant transaction.
+Membership/assignment changes are reread without caching: member permissions work
+normally, inactive eligibility remains opt-in, follower/left remain denied. Losing
+an assignment or permission takes effect on the next evaluation even if assurance
+is still stored. Object/privacy checks remain additional requirements; assurance
+never expands tenant access. Main Church Administrator, Primary Owner and Platform
+Superadmin remain unavailable. Social login alone cannot satisfy future assurance.

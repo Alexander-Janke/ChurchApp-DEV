@@ -602,8 +602,9 @@ Session IDs remain non-secret management references. Native revocation performs
 the database deletion and user scoping, with cross-user tests for every operation.
 
 Mobile 30/90-day policy needs trusted server-side client classification and remains
-deferred; a submitted client label cannot extend web lifetimes. Privileged elevation
-and critical step-up are also deferred, as are client login/session-management UIs.
+deferred; a submitted client label cannot extend web lifetimes. Task 1.15 adds privileged elevation
+and critical step-up storage/policy; production proof issuance and client
+login/session-management UIs remain deferred.
 
 Session information should support:
 
@@ -2086,3 +2087,59 @@ must add platform authority, concurrency and audit controls before activation.
 No schema, migration, permission key or standard-role change is required. Task 1.7b
 remains blocked; Phase 1H ownership, Phase 1I owner-creating onboarding and Phase 1K
 privileged administration remain deferred while this metadata foundation proceeds.
+
+## Task 1.15 — Assurance, Elevation & Step-Up Foundation
+
+Task 1.15 maps to Phase 1L. Ordinary authentication, elevation and recent step-up
+are independent concepts. `AssuranceModule` provides only an internal service:
+no completion/status controller, proof issuer or privileged feature is exposed.
+`SECURE_ELEVATION_COMPLETION_ENABLED=false` is code-owned, with no environment
+override. Only a separately reviewed replay-safe Task 1.7b proof implementation
+may introduce issuance. Task 1.7a preparation remains gated; enrollment, a user
+flag, recovery codes, trusted devices and social login do not confer assurance.
+
+Application-owned `session_assurance` has one row per concrete session ID: the
+primary key references Better Auth `session.id` with ON DELETE CASCADE. There is
+no redundant user ID: ownership is joined from the session, eliminating mismatched
+user/session pairs without changing Better Auth schema. This global account state
+has no church ID or tenant RLS. Nullable `elevatedAt`, `lastElevatedActivityAt` and
+`stepUpAt` use timestamptz; `createdAt`/`updatedAt` are record timestamps, not proof.
+No secrets or history are stored. Migration `0007_session_assurance_foundation`
+adds only this table and FK; the pinned Better Auth generator is unchanged.
+
+`AssurancePolicy` uses an injectable server clock and the Task 1.4 normal-session
+policy. Elevation requires BOTH `lastElevatedActivityAt + 15 minutes > now` and
+`elevatedAt + 8 hours > now`. Step-up independently requires
+`stepUpAt + 5 minutes > now`; equality is expired. Invalid/future proof timestamps,
+proof before session creation, and activity before elevation fail closed.
+A missing, revoked, rolling-expired or 30-day absolute-expired session denies all
+assurance. Original session creation and ordinary expiry are never updated here.
+
+Only an explicitly successful protected privileged operation may call
+`recordSuccessfulPrivilegedActivity`; there are no current callers. Session/profile
+reads, polling and heartbeats never refresh it. The method rechecks the underlying
+owned session and existing assurance under transaction locks, samples time after
+locking, and updates only activity/record-update time. It never inserts or upserts,
+never moves elevation start or step-up, and cannot resurrect invalidated rows.
+Concurrent invalidation deletes the row regardless of refresh ordering. Expired
+rows can remain for later cleanup but cannot authenticate or refresh.
+
+`SessionAuthorizationService` combines current tenant membership/role permissions
+with authoritative session/assurance evaluation. Server code obtains the user and
+non-secret session ID through `AuthSessionReader`, never a client identity selector.
+The same restricted tenant transaction performs the checks; object/privacy rules
+and transaction-bound rechecks remain required when future protected mutations
+are introduced. Permission metadata is immutable and owns both privileged-assurance
+and recent-step-up requirements. No privileged key is registered and the fixed
+gate additionally denies protected keys. Stored assurance alone grants nothing.
+
+Factor disable uses the supported Better Auth user-update before hook, after native
+password verification and before disabling/removing the factor. All own assurance
+is deleted first; failure aborts the native transition with a sanitized error.
+A later native failure may conservatively leave the user without assurance. Native
+session rotation keeps the original absolute start and never copies assurance to
+the replacement. Logout/revocation/password reset cascade deletions; password and
+email changes preserve retained proof timestamps without issuing fresh proof.
+Recovery-code regeneration also cannot issue proof. Future factor-reset flows must
+invoke the same invalidation boundary before mutation. Production factor issuance,
+privileged operations, security-event history and audit integration remain deferred.

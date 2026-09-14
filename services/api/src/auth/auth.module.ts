@@ -1,3 +1,4 @@
+import { AssuranceModule } from "./assurance.module.js";
 import { AuthSessionReader } from "./auth-session-reader.js";
 import { EmailChangeService } from "./email-change.service.js";
 import { Module } from "@nestjs/common";
@@ -9,8 +10,9 @@ import { AuthEmailModule, AuthEmailSender } from "./auth-email.js";
 
 @Module({
   providers: [AuthSessionReader],
-  exports: [AuthSessionReader],
+  exports: [AuthSessionReader, AssuranceModule],
   imports: [
+    AssuranceModule,
     BetterAuthModule.forRootAsync({
       imports: [DatabaseModule, AuthEmailModule],
       inject: [DatabaseService, AuthEmailSender],

@@ -113,7 +113,7 @@ export function churchIntegrationTests() {
             "select count(*)::int n from drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(7);
+      ).toBe(8);
     });
     it("runs protected assertions under a non-owner login without superuser, BYPASSRLS or role-creation privileges", async () => {
       await fixture.assertRestrictedRole();

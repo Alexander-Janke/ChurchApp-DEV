@@ -550,6 +550,14 @@ export function twoFactorIntegrationTests() {
           )
         ).status,
       ).toBe(200);
+      expect(
+        (
+          await pool.query(
+            "select count(*)::int n from session_assurance a join session s on s.id=a.session_id where s.user_id=$1",
+            [id],
+          )
+        ).rows[0].n,
+      ).toBe(0);
     });
     it("disables only the authenticated user's material and explicitly rotates without resetting absolute age", async () => {
       await activate();
@@ -630,7 +638,7 @@ export function twoFactorIntegrationTests() {
             "SELECT count(*)::int n FROM drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(7);
+      ).toBe(8);
       await pool.query('DELETE FROM "user" WHERE id=$1', [id]);
       expect(await rows()).toHaveLength(0);
     });

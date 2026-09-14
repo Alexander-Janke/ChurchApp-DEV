@@ -2245,3 +2245,30 @@ The unchanged 0000–0006 migration chain is applied cleanly and repeated, prese
 verification state and seven journal entries. All prior church, membership,
 authorization, standard-role and authentication suites remain required. Pinned
 Better Auth 1.7.4 schema generation must remain identical. No Task 1.14 migration.
+
+## Task 1.15 assurance regression coverage
+
+`assurance.spec.ts` covers normal versus elevated versus recent proof, exact
+15-minute/eight-hour/five-minute boundaries, invalid/future/pre-session timestamps,
+clock failure, immutable permission requirements, proof independence and the fixed
+closed issuance gate. Test-only sensitive permission definitions exercise requirement
+mechanics without registering a real privileged capability.
+
+`support/assurance.integration.ts` uses disposable PostgreSQL and the production
+AuthModule. Only its isolated fixture can insert assurance. Tests cover clean/repeat
+0000–0007 migrations, PK/FK/cascade, same-user different-session and cross-user
+binding, expiry, activity, concurrent refresh/invalidation and no resurrection.
+Real logout, password reset/change, email change, factor-disable rotation, deletion
+failure and client-field/endpoint tests exercise the lifecycle. Backup regeneration
+in the existing isolated factor fixture creates no assurance. Proof and session
+secrets are never assertion snapshots. There is no native verifier added to production.
+
+`support/assurance-authorization.integration.ts` uses the restricted tenant harness,
+with only explicit non-secret session-column/assurance SELECT grants in its disposable
+role. It verifies tenant/user isolation, inactive/member/left transitions, follower
+denial and immediate permission/assignment loss despite stored assurance. Existing
+RLS and auth regressions remain mandatory. Prior migration-count assertions now
+include the eighth migration; Better Auth-owned schema comparison remains unchanged.
+
+Run the canonical contracts/API/client/Flutter/Playwright checks and `pnpm db:check`.
+Task 1.15 validates storage/policy, not secure MFA completion: Task 1.7b remains blocked.

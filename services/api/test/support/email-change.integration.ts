@@ -625,6 +625,7 @@ export function emailChangeIntegrationTests() {
         "0004_tenant_membership_foundation",
         "0005_roles_permissions_foundation",
         "0006_two_factor_foundation",
+        "0007_session_assurance_foundation",
       ];
       const expectedHashes = migrationNames.map((name) =>
         createHash("sha256")

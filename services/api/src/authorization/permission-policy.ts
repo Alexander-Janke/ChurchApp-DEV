@@ -3,8 +3,12 @@ export const PERMISSIONS = Object.freeze({
   "members.view": Object.freeze({
     inactiveEligible: true,
     requiresPrivilegedAssurance: false,
+    requiresRecentStepUp: false,
   }),
-  "events.create": Object.freeze({ requiresPrivilegedAssurance: false }),
+  "events.create": Object.freeze({
+    requiresPrivilegedAssurance: false,
+    requiresRecentStepUp: false,
+  }),
 });
 export type PermissionKey = keyof typeof PERMISSIONS;
 export function isPermissionKey(value: unknown): value is PermissionKey {

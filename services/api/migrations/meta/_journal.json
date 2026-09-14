@@ -50,6 +50,13 @@
       "when": 1789389589459,
       "tag": "0006_two_factor_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789398166001,
+      "tag": "0007_session_assurance_foundation",
+      "breakpoints": true
     }
   ]
 }

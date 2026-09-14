@@ -2274,3 +2274,36 @@ deferred together; no production bypass or fake superadmin has been introduced.
 The policy and test-only concurrency probe must not be mistaken for an activated
 review workflow. No request/review HTTP API exists; future exposed actions require
 reviewed entitlement and audit integration. Failures expose no driver diagnostics.
+
+## Task 1.15 assurance security boundary
+
+Normal opaque PostgreSQL sessions prove identity only. Session-bound elevation has
+a 15-minute inactivity limit AND an eight-hour absolute limit; critical step-up is
+a separate nonsliding five-minute proof window. Exact equality expires each window.
+A recent step-up without valid elevation does not satisfy a critical privileged
+operation; valid elevation without recent step-up does not satisfy it either.
+All evaluations recheck the owned underlying session, including its 30-day absolute
+limit. No client claim, factor-enrollment flag, role name, trusted device or social
+login is an assurance source. Cookie cache/secondary storage remain disabled.
+
+Production issuance remains impossible: the completion gate is fixed false, there
+is no production insert/upsert or completion endpoint, and the only issuance fixture
+lives under test support. Task 1.7b is still blocked. The existing preparation and
+sign-in allowlists reject injected assurance fields. No owners, admins or other
+privileged capabilities are enabled by this foundation.
+
+Activity is explicit only after successful protected privileged work; ordinary
+reads never extend elevation. Transactional locking and update-only persistence
+ensure concurrent invalidation wins, cannot be resurrected by a refresh, and never
+moves original session/elevation creation. Account-wide invalidation derives session
+ownership server-side. Factor disable deletes all own assurance after password proof
+and before factor mutation, failing closed on deletion errors. Its session rotation
+preserves original absolute age without copying proof; an unrelated user is untouched.
+Session deletion cascades assurance, including logout and password reset. No reusable
+credentials are selected into assurance responses or logged; errors omit driver detail.
+
+Future replay-safe factor completion, email-change initiation, recovery-code
+regeneration, factor recovery and privileged mutations need explicit operation-specific
+proof and audit decisions before activation. Password change/email verification alone
+do not manufacture step-up. This task adds no audit/history storage and does not
+claim those later security flows complete.

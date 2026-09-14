@@ -140,7 +140,7 @@ export function authorizationIntegrationTests() {
             "select count(*)::int n from drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(7);
+      ).toBe(8);
     });
     it("asserts all five tables against the real restricted runtime login", async () => {
       await fixture.assertRestrictedRole();

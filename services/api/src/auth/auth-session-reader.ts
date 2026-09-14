@@ -27,6 +27,7 @@ export class AuthSessionReader {
     if (!result.response?.user) throw new UnauthorizedException();
     return {
       userId: result.response.user.id,
+      sessionId: result.response.session.id,
       cookies: result.headers.getSetCookie(),
     };
   }

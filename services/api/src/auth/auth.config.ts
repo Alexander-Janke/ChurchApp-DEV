@@ -1,3 +1,4 @@
+import { invalidateUserAssurance } from "./session-assurance.service.js";
 import { preparationTwoFactor } from "./auth-two-factor.js";
 import { emailChangePlugin } from "./email-change.plugin.js";
 import type { EmailChangeService } from "./email-change.service.js";
@@ -125,6 +126,27 @@ export function createBetterAuth(
       },
     },
     databaseHooks: {
+      user: {
+        update: {
+          before: async (data, ctx) => {
+            // Native disable calls this AFTER password proof and BEFORE factor removal.
+            // Invalidate first: a later native failure may conservatively lose assurance,
+            // but must never leave trusted state behind after factor disable.
+            if (ctx?.path === "/two-factor/disable") {
+              const current = ctx.context.session;
+              if (!current || data.twoFactorEnabled !== false)
+                throw new APIError("UNAUTHORIZED", { message: "Unauthorized" });
+              try {
+                await invalidateUserAssurance(database, current.user.id);
+              } catch {
+                throw new APIError("SERVICE_UNAVAILABLE", {
+                  message: "Assurance invalidation failed",
+                });
+              }
+            }
+          },
+        },
+      },
       session: {
         create: {
           before: async (session, ctx) => {

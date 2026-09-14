@@ -2139,3 +2139,13 @@ Task 1.7a and Task 1.13 remain complete; Task 1.7b remains BLOCKED. Phase 1H Pri
 Owner activation, Phase 1I onboarding that creates an owner, and Phase 1K privileged
 administration await secure second-factor assurance. Phase 1J's internal metadata
 foundation can proceed without activating any of those capabilities.
+
+## Task 1.15 — Assurance, Elevation & Step-Up Foundation
+
+Maps to Phase 1L. Implements internal session-bound assurance storage and the
+15-minute inactivity / eight-hour maximum elevation and separate five-minute
+critical step-up policies, lifecycle invalidation and combined permission checks.
+Production assurance completion remains fixed disabled. Task 1.7a and Task 1.14
+remain complete; Task 1.7b remains BLOCKED and must supply reviewed replay-safe
+proof before trusted assurance can be issued. No privileged role, Primary Owner,
+ownership transfer, privileged onboarding or administration is activated.
