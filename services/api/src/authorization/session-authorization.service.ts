@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { user, twoFactor } from "../database/schema/auth.js";
 import { churchMembership } from "../database/schema/church-membership.js";
 import {
   SessionAssuranceService,
@@ -12,7 +13,7 @@ import { TenantContext } from "../database/tenant-context.js";
 import { TenantDatabase } from "../database/tenant-database.js";
 import { AuthorizationRepository } from "./authorization.repository.js";
 
-// Internal combined evaluator, with no external routes or privileged keys.
+// Internal combined evaluator; no external administrative routes.
 @Injectable()
 export class SessionAuthorizationService {
   constructor(
@@ -51,7 +52,7 @@ export class SessionAuthorizationService {
           .limit(1);
         if (
           !membership ||
-          !(await this.repository.hasPermission(
+          !(await this.repository.hasEligibleRolePermission(
             context,
             tx,
             membership.id,
@@ -59,11 +60,36 @@ export class SessionAuthorizationService {
           ))
         )
           return false;
-        return permissionAndAssurance(
-          true,
-          requirements,
-          await this.assurance.evaluate(subject, tx),
-        );
+        if (
+          !permissionAndAssurance(
+            true,
+            requirements,
+            await this.assurance.evaluate(subject, tx),
+          )
+        )
+          return false;
+        if (
+          requirements.requiresPrivilegedAssurance ||
+          requirements.requiresRecentStepUp
+        ) {
+          // Current database state, never a client/session flag or role label.
+          // Exactly one verified factor, consistent with the ownership boundary.
+          const factors = await tx
+            .select({
+              enabled: user.twoFactorEnabled,
+              verified: twoFactor.verified,
+            })
+            .from(user)
+            .leftJoin(twoFactor, eq(twoFactor.userId, user.id))
+            .where(eq(user.id, subject.userId))
+            .limit(2);
+          return (
+            factors.length === 1 &&
+            factors[0]?.enabled === true &&
+            factors[0]?.verified === true
+          );
+        }
+        return true;
       });
     } catch {
       throw new Error("Authorization evaluation failed");

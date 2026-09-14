@@ -94,9 +94,7 @@ it("preserves explicit accepted upstream limitation and no owner role", () => {
     "utf8",
   );
   expect(
-    STANDARD_ROLES.some((role) =>
-      /owner|main church administrator/i.test(role.name),
-    ),
+    STANDARD_ROLES.some((role) => /owner|superadmin/i.test(role.name)),
   ).toBe(false);
   expect(security.includes("SECURITY ACCEPTANCE — TOTP REPLAY")).toBe(true);
   expect(security.includes("better-auth/better-auth#10387")).toBe(true);

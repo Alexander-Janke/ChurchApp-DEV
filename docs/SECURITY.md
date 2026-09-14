@@ -2475,3 +2475,35 @@ logging or duplicate audit framework is added. Every downstream provisioning fai
 rolls back the entire church. Ownership grants no wildcard permissions; standard
 roles retain empty bundles and zero assignments. No management/transfer API or
 Main Church Administrator is activated. The accepted #10387 exception is unchanged.
+
+## Task 1.19 — privileged administrator boundary
+
+Main Church Administrator's exact bundle is `members.manage` and
+`church.settings.manage`. Both require current member status, current database
+verified/enabled 2FA and valid elevation for the exact authenticated session
+(15-minute inactivity / eight-hour absolute maximum). Neither ordinary permission
+requires recent step-up; the existing five-minute rule for critical operations is
+unchanged. Inactive eligibility is explicitly false; follower and left are denied.
+Custom roles carrying either key receive the same protections. No label, system flag,
+ownership predicate or stored role assignment substitutes for a factor or assurance.
+
+The uncached combined evaluator rereads tenant-scoped grants and membership, session
+ownership/lifetime, assurance and non-secret factor eligibility. Disabled, pending,
+missing or ambiguous factors deny privilege even if assurance/assignment rows remain.
+Sessionless permission checks deny privileged keys. Evaluation does not issue or
+refresh elevation. Existing factor-disable invalidation and session/password-reset
+revocation behavior remain intact. Future mutations must apply operation-transaction
+rechecks and separate object/privacy/audit rules; this task exposes no admin HTTP API.
+
+Member administration excludes separately protected sensitive data. Ordinary church
+settings exclude security-critical settings, deletion and ownership operations.
+Role administration/delegation (`roles.manage`) and platform authority are deferred.
+An administrator cannot acquire Primary Owner authority through this bundle.
+
+Explicit provisioning reconciles exactly five canonical roles under the existing
+restricted tenant transaction and church-row lock. The original four remain empty
+nonprivileged bundles; only the administrator has the approved two keys. Onboarding
+still assigns none to the creator. Missing keys are restored, stray keys removed;
+custom/foreign-tenant grants are untouched. No startup seeding, RLS bypass, schema,
+TOTP behavior or dependency changes are introduced. The documented temporary
+`better-auth/better-auth#10387` acceptance is unchanged.

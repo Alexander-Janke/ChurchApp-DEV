@@ -75,19 +75,25 @@ it("uses existing canonical slug/name/address normalization", () => {
     countryCode: null,
   });
 });
-it("canonical roles remain exactly four nonprivileged empty system bundles", () => {
+it("canonical provisioning includes the approved admin and four unchanged empty bundles", () => {
   expect(STANDARD_ROLES.map((r) => r.key)).toEqual([
     "group_leader",
     "area_leader",
     "event_administrator",
     "childrens_worker",
+    "main_church_administrator",
   ]);
-  for (const role of STANDARD_ROLES)
+  for (const role of STANDARD_ROLES.slice(0, 4))
     expect(role).toMatchObject({
       isSystem: true,
       privileged: false,
       permissions: [],
     });
+  expect(STANDARD_ROLES[4]).toMatchObject({
+    isSystem: true,
+    privileged: true,
+    permissions: ["members.manage", "church.settings.manage"],
+  });
 });
 it("denied creator aborts before tenant bootstrap or writes without leaking claims", async () => {
   const tx = { execute: vi.fn().mockResolvedValue({}) };

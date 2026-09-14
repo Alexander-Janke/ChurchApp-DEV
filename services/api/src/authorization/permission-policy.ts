@@ -9,6 +9,18 @@ export const PERMISSIONS = Object.freeze({
     requiresPrivilegedAssurance: false,
     requiresRecentStepUp: false,
   }),
+  // Ordinary member administration only; separately protected personal data is excluded.
+  "members.manage": Object.freeze({
+    inactiveEligible: false,
+    requiresPrivilegedAssurance: true,
+    requiresRecentStepUp: false,
+  }),
+  // Ordinary settings only. Critical/security settings require a future separate key.
+  "church.settings.manage": Object.freeze({
+    inactiveEligible: false,
+    requiresPrivilegedAssurance: true,
+    requiresRecentStepUp: false,
+  }),
 });
 export type PermissionKey = keyof typeof PERMISSIONS;
 export function isPermissionKey(value: unknown): value is PermissionKey {
@@ -29,15 +41,12 @@ export function isPermissionEligibleForInactiveMembership(
   return policy.inactiveEligible === true;
 }
 // This answers assignment eligibility only, not object/privacy/assurance entitlement.
-// No privileged permission may become usable before secure TOTP and assurance exist.
+// Privileged eligibility still requires the combined session/factor/assurance evaluator.
 export function membershipAllowsPermission(
   status: unknown,
   permission: unknown,
 ): boolean {
   if (!isPermissionKey(permission)) return false;
-  const policy: { requiresPrivilegedAssurance: boolean } =
-    PERMISSIONS[permission];
-  if (policy.requiresPrivilegedAssurance) return false;
   return (
     status === "member" ||
     (status === "inactive" &&

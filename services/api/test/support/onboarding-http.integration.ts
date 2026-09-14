@@ -239,23 +239,42 @@ export function onboardingHttpIntegrationTests() {
             sql`select id,name,is_system from church_role where church_id=${id}`,
           )
         ).rows;
-        expect(roles).toHaveLength(4);
+        expect(roles).toHaveLength(5);
+        expect(STANDARD_ROLES.map((role) => role.key)).toEqual([
+          "group_leader",
+          "area_leader",
+          "event_administrator",
+          "childrens_worker",
+          "main_church_administrator",
+        ]);
+
         for (const d of STANDARD_ROLES) {
           expect(roles).toContainEqual({
             id: standardRoleId(scope, d.key),
             name: d.name,
             is_system: true,
           });
-          expect(d.privileged).toBe(false);
-          expect(d.permissions).toEqual([]);
+          expect(d).toMatchObject(
+            d.key === "main_church_administrator"
+              ? {
+                  privileged: true,
+                  permissions: ["members.manage", "church.settings.manage"],
+                }
+              : { privileged: false, permissions: [] },
+          );
         }
         expect(
           (
             await tx.execute(
-              sql`select * from church_role_permission where church_id=${id}`,
+              sql`select role_id,permission from church_role_permission where church_id=${id} order by permission`,
             )
           ).rows,
-        ).toEqual([]);
+        ).toEqual(
+          ["church.settings.manage", "members.manage"].map((permission) => ({
+            role_id: standardRoleId(scope, "main_church_administrator"),
+            permission,
+          })),
+        );
         expect(
           (
             await tx.execute(
@@ -312,7 +331,7 @@ export function onboardingHttpIntegrationTests() {
       });
       expect(res.body.ownership).toEqual({ isPrimaryOwner: true });
       expect(JSON.stringify(res.body).includes(cookie)).toBe(false);
-      expect(await counts()).toEqual([1, 1, 4, 0, 0, 1, 1]);
+      expect(await counts()).toEqual([1, 1, 5, 2, 0, 1, 1]);
       await complete(res.body.church.id);
       expect(await securityState()).toEqual(before);
     });
@@ -407,14 +426,14 @@ export function onboardingHttpIntegrationTests() {
         slug: "NEW-CHURCH",
       }).expect(409);
       expect(duplicate.body.message).toBe("Church slug is unavailable");
-      expect(await counts()).toEqual([1, 1, 4, 0, 0, 1, 1]);
+      expect(await counts()).toEqual([1, 1, 5, 2, 0, 1, 1]);
       await complete(first.body.church.id);
     });
     it("concurrent same-slug HTTP requests yield one complete 201 and one 409, no loser artifacts", async () => {
       cookie = await activate();
       const responses = await Promise.all([post(), post()]);
       expect(responses.map((r) => r.status).sort()).toEqual([201, 409]);
-      expect(await counts()).toEqual([1, 1, 4, 0, 0, 1, 1]);
+      expect(await counts()).toEqual([1, 1, 5, 2, 0, 1, 1]);
       await complete(responses.find((r) => r.status === 201)!.body.church.id);
     });
     it("rate limit counts denied attempts and prevents a fourth orchestration", async () => {
@@ -466,7 +485,7 @@ export function onboardingHttpIntegrationTests() {
           ]);
         },
       );
-      expect(await counts()).toEqual([2, 2, 8, 0, 0, 2, 2]);
+      expect(await counts()).toEqual([2, 2, 10, 4, 0, 2, 2]);
     });
     it.each([
       "church_membership",
@@ -512,7 +531,7 @@ export function onboardingHttpIntegrationTests() {
           )
         ).rows[0].n,
       ).toBe(10);
-      expect(await counts()).toEqual([1, 1, 4, 0, 0, 1, 1]);
+      expect(await counts()).toEqual([1, 1, 5, 2, 0, 1, 1]);
       await complete(res.body.church.id);
     });
     it("AppModule exposes no general church, owner-transfer, role, member or review routes", async () => {

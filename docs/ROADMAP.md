@@ -2236,3 +2236,19 @@ assignments. Response mapping is explicit/no-store. General church administratio
 Main Church Administrator, Platform Superadmin, role/member management, ownership-
 transfer API and frontend onboarding remain deferred. Task 1.7's temporary #10387
 exception remains unchanged. Task 1.19 is not started or defined here.
+
+## Task 1.19 — Main Church Administrator Foundation
+
+Task 1.19 maps to the Phase 1G / Phase 1K bridge. The approved canonical privileged
+system role adds exactly `members.manage` and `church.settings.manage`, each requiring
+member status, current verified/enabled 2FA and exact-session elevation, with no
+recent step-up requirement for these ordinary operations. Sensitive member data,
+critical settings, role delegation, church deletion, ownership and platform authority
+are excluded and remain separately reviewed work.
+
+Explicit provisioning and Task 1.17/1.18 onboarding now create five canonical roles
+and zero assignments. The existing four roles remain empty/nonprivileged. Existing
+churches require explicit reconciliation; no startup seed or migration is introduced.
+Primary Owner remains separate. No general administration API or UI is implemented.
+The temporary Better Auth #10387 exception is unchanged. Task 1.19 remains uncommitted
+for review; Task 1.20 is not started or defined here.

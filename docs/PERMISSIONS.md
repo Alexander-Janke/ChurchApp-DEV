@@ -1905,3 +1905,33 @@ atomic with every ownership change. A stale/concurrent loser cannot overwrite th
 new owner. Self-transfer changes nothing. No ordinary role, including a custom role
 named Primary Owner, can substitute for this relationship or these assurance checks.
 Main Church Administrator and Platform Superadmin remain unimplemented.
+
+## Task 1.19 — approved minimal Main Church Administrator bundle
+
+The canonical privileged system role `main_church_administrator` contains exactly:
+
+| Permission | Inactive eligible | Elevation required | Recent step-up required |
+| --- | --- | --- | --- |
+| `members.manage` | false | true | false |
+| `church.settings.manage` | false | true | false |
+
+The code uses `requiresPrivilegedAssurance` for the elevation requirement. Current
+member status, enabled/verified 2FA, exact-session valid elevation and tenant-scoped
+role assignment are all required. Custom roles cannot weaken permission metadata.
+A stored administrator assignment may survive factor loss or membership transitions,
+but effective privilege immediately fails closed. A second session without elevation
+is denied. No permission cache or role-name authorization is introduced.
+
+`members.manage` does not grant separately protected sensitive-member-data access.
+`church.settings.manage` covers ordinary settings only, not security-critical settings
+requiring recent step-up, church deletion or ownership. `roles.manage` remains
+conditional/deferred pending delegation policy; it is not part of this bundle.
+Ownership establishment/transfer/removal and the Primary Owner predicate remain
+exclusively governed by Task 1.16. Platform administration is excluded.
+
+The other four standard roles keep their empty nonprivileged bundles. Explicit
+provisioning and onboarding now create exactly five roles and no assignments;
+Primary Owner does not imply the administrator role or wildcard permissions.
+Generic mutation cannot rename/delete a canonical system role or edit its bundle.
+No public administration endpoints are added. Security-sensitive settings, deletion,
+role delegation and platform administration require separate future policy review.

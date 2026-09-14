@@ -192,25 +192,42 @@ export function onboardingIntegrationTests() {
           actorSessionId: subject.sessionId,
         });
         const stored = await rolesRepo.listRoles(context, tx);
-        expect(stored).toHaveLength(4);
+        expect(stored).toHaveLength(5);
+        expect(STANDARD_ROLES.map((role) => role.key)).toEqual([
+          "group_leader",
+          "area_leader",
+          "event_administrator",
+          "childrens_worker",
+          "main_church_administrator",
+        ]);
+
         for (const definition of STANDARD_ROLES) {
           expect(
             stored.find(
               (r) => r.id === standardRoleId(context, definition.key),
             ),
           ).toMatchObject({ name: definition.name, isSystem: true });
-          expect(definition).toMatchObject({
-            privileged: false,
-            permissions: [],
-          });
+          expect(definition).toMatchObject(
+            definition.key === "main_church_administrator"
+              ? {
+                  privileged: true,
+                  permissions: ["members.manage", "church.settings.manage"],
+                }
+              : { privileged: false, permissions: [] },
+          );
         }
         expect(
           (
             await tx.execute(
-              sql`select count(*)::int n from church_role_permission where church_id=${id}`,
+              sql`select role_id,permission from church_role_permission where church_id=${id} order by permission`,
             )
-          ).rows[0]!.n,
-        ).toBe(0);
+          ).rows,
+        ).toEqual(
+          ["church.settings.manage", "members.manage"].map((permission) => ({
+            role_id: standardRoleId(context, "main_church_administrator"),
+            permission,
+          })),
+        );
         expect(
           (
             await tx.execute(
@@ -235,7 +252,7 @@ export function onboardingIntegrationTests() {
       });
       expect(result.church.id).toMatch(/^[0-9a-f-]{36}$/);
       await complete(result.church.id);
-      expect(await counts()).toEqual([1, 1, 4, 0, 0, 1, 1]);
+      expect(await counts()).toEqual([1, 1, 5, 2, 0, 1, 1]);
     });
     it("uses the same transaction object/backend/XID across all five provisioning stages", async () => {
       const transactions: DatabaseTransaction[] = [];
@@ -385,7 +402,7 @@ export function onboardingIntegrationTests() {
         ) === before,
       ).toBe(true);
       await complete(first.church.id);
-      expect(await counts()).toEqual([1, 1, 4, 0, 0, 1, 1]);
+      expect(await counts()).toEqual([1, 1, 5, 2, 0, 1, 1]);
     });
     it("concurrent same-slug creates exactly one complete winner with no losing artifacts", async () => {
       const results = await Promise.allSettled([
@@ -397,7 +414,7 @@ export function onboardingIntegrationTests() {
       const failure = results.find((r) => r.status === "rejected");
       expect(failure?.reason instanceof ChurchSlugConflictError).toBe(true);
       await complete(successes[0]!.value.church.id);
-      expect(await counts()).toEqual([1, 1, 4, 0, 0, 1, 1]);
+      expect(await counts()).toEqual([1, 1, 5, 2, 0, 1, 1]);
     });
     it("same creator may concurrently onboard different churches", async () => {
       const [a, b] = await Promise.all([
@@ -407,7 +424,7 @@ export function onboardingIntegrationTests() {
       expect(a.church.id !== b.church.id).toBe(true);
       await complete(a.church.id);
       await complete(b.church.id);
-      expect(await counts()).toEqual([2, 2, 8, 0, 0, 2, 2]);
+      expect(await counts()).toEqual([2, 2, 10, 4, 0, 2, 2]);
     });
     it.each([
       "church",

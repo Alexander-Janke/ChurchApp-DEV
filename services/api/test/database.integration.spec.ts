@@ -1,3 +1,4 @@
+import { mainChurchAdministratorIntegrationTests } from "./support/main-church-administrator.integration.js";
 import { onboardingHttpIntegrationTests } from "./support/onboarding-http.integration.js";
 import { onboardingIntegrationTests } from "./support/onboarding.integration.js";
 import { ownershipIntegrationTests } from "./support/ownership.integration.js";
@@ -374,3 +375,5 @@ ownershipIntegrationTests();
 onboardingIntegrationTests();
 
 onboardingHttpIntegrationTests();
+
+mainChurchAdministratorIntegrationTests();

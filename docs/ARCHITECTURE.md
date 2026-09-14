@@ -2406,3 +2406,50 @@ PostgreSQL transaction. No assignments, wildcard permissions, verification submi
 general administration, member/role management, transfer route, Main Church
 Administrator, Platform Superadmin or UI is added. No schema/migration or Better
 Auth change; the documented better-auth/better-auth#10387 exception is unchanged.
+
+## Task 1.19 — Main Church Administrator Foundation
+
+Task 1.19 maps to the Phase 1G / Phase 1K bridge. It extends explicit canonical
+provisioning (including Task 1.17/1.18 onboarding) to five system roles. The original
+four definitions remain nonprivileged with empty bundles. The fifth stable key is
+`main_church_administrator`, named Main Church Administrator, with `isSystem=true`
+and code-owned `privileged=true`. Its exact bundle is `members.manage` and
+`church.settings.manage`. No migration or persisted privileged flag is needed.
+
+Both permissions have `inactiveEligible=false`, `requiresPrivilegedAssurance=true`
+(the existing metadata name for requiring elevation), and `requiresRecentStepUp=false`.
+Member administration excludes separately protected sensitive personal data;
+settings administration excludes deletion and security-sensitive settings. Role
+administration (`roles.manage`), critical settings, ownership operations and platform
+administration are outside this bundle and require separate reviewed capabilities.
+
+Provisioning retains the scoped church-row lock and existing stable role IDs.
+It restores missing canonical keys and removes stray mappings, including unknown
+keys, only from the target tenant's canonical system roles. Existing canonical
+mapping timestamps, custom roles, assignments and other tenants remain unchanged.
+Concurrent/repeated provisioning is serialized and idempotent; custom collisions
+abort the entire transaction. Existing churches require explicit reconciliation;
+there is no startup/migration seed. Onboarding creates five roles, two permission
+mappings and **zero membership-role assignments** in its existing atomic transaction.
+The creator/Primary Owner does not automatically receive the administrator role.
+This supersedes earlier task descriptions of four-role provisioning.
+
+`SessionAuthorizationService` is the internal authoritative combined evaluator.
+For either privileged key it checks tenant-scoped current membership/assignments,
+the exact user-owned session and its elevation, and current database factor state:
+enabled 2FA with exactly one verified factor. Inactive/follower/left relationships
+cannot exercise these permissions. Factor loss, membership/assignment/grant changes
+and session revocation affect the next uncached evaluation. Custom roles granting
+the same keys inherit identical requirements regardless of label. The sessionless
+compatibility service/repository refuses privileged keys; the separate repository
+eligibility primitive is not an authorization result.
+
+Elevation stays session-bound with 15-minute inactivity and eight-hour absolute
+limits. These ordinary permissions need no recent critical step-up; separately
+classified critical operations still require the five-minute window. Evaluation
+never issues or refreshes assurance. Future protected writes must recheck entitlement
+inside their operation transaction and enforce object/privacy rules and audit needs.
+No administrative HTTP route, member/settings mutation, role assignment API, frontend
+or assurance issuer is introduced. Primary Owner remains its separate protected
+relationship and predicate; an administrator role cannot replace ownership checks.
+Better Auth 1.7.4 / Nest integration 2.8.0 and the temporary #10387 exception are unchanged.

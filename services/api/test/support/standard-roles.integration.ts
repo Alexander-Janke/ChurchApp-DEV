@@ -77,7 +77,7 @@ export function standardRolesIntegrationTests() {
       });
     });
 
-    it("creates exactly four system identities with empty bundles and no assignments in A only", async () => {
+    it("creates exactly five system identities with approved bundles and no assignments in A only", async () => {
       const result = await service.ensureStandardRoles(A);
       expect(result.map((r) => [r.key, r.name, r.isSystem])).toEqual(
         STANDARD_ROLES.map((r) => [r.key, r.name, true]),
@@ -85,9 +85,17 @@ export function standardRolesIntegrationTests() {
       expect(result.map((r) => r.id)).toEqual(
         STANDARD_ROLES.map((r) => standardRoleId(A, r.key)),
       );
-      expect(await roles(A)).toHaveLength(4);
+      expect(await roles(A)).toHaveLength(5);
       expect(await roles(B)).toEqual([]);
-      expect(await mappings(A)).toEqual([]);
+      expect((await mappings(A)).map((r) => [r.role_id, r.permission])).toEqual(
+        [
+          [
+            standardRoleId(A, "main_church_administrator"),
+            "church.settings.manage",
+          ],
+          [standardRoleId(A, "main_church_administrator"), "members.manage"],
+        ],
+      );
       expect(
         await fixture.withTenant(A, (tx) =>
           repository.listMembershipRoles(A, tx, ma),
@@ -97,8 +105,10 @@ export function standardRolesIntegrationTests() {
     });
     it("repeated provisioning preserves IDs and timestamps without duplicate rows", async () => {
       const first = await service.ensureStandardRoles(A);
+      const firstMappings = await mappings(A);
       expect(await service.ensureStandardRoles(A)).toEqual(first);
-      expect(await roles(A)).toHaveLength(4);
+      expect(await mappings(A)).toEqual(firstMappings);
+      expect(await roles(A)).toHaveLength(5);
     });
     it("serializes simultaneous provisioning on separate pooled connections", async () => {
       const [first, second] = await Promise.all([
@@ -106,8 +116,16 @@ export function standardRolesIntegrationTests() {
         concurrent.ensureStandardRoles(A),
       ]);
       expect(second).toEqual(first);
-      expect(await roles(A)).toHaveLength(4);
-      expect(await mappings(A)).toEqual([]);
+      expect(await roles(A)).toHaveLength(5);
+      expect((await mappings(A)).map((r) => [r.role_id, r.permission])).toEqual(
+        [
+          [
+            standardRoleId(A, "main_church_administrator"),
+            "church.settings.manage",
+          ],
+          [standardRoleId(A, "main_church_administrator"), "members.manage"],
+        ],
+      );
     });
     it("concurrent tenants get separate identities and no cross-tenant visibility", async () => {
       const [first, second] = await Promise.all([
@@ -116,7 +134,7 @@ export function standardRolesIntegrationTests() {
       ]);
       expect(first.every((r) => r.churchId === A.churchId)).toBe(true);
       expect(second.every((r) => r.churchId === B.churchId)).toBe(true);
-      expect(new Set([...first, ...second].map((r) => r.id)).size).toBe(8);
+      expect(new Set([...first, ...second].map((r) => r.id)).size).toBe(10);
       expect(
         await fixture.withTenant(A, (tx) =>
           repository.getRole(A, tx, second[0]!.id),
@@ -141,7 +159,7 @@ export function standardRolesIntegrationTests() {
       expect(await authorization.hasPermission(A, ma, "members.view")).toBe(
         true,
       );
-      expect(await mappings(A)).toHaveLength(1);
+      expect(await mappings(A)).toHaveLength(3);
       expect(
         await fixture.withTenant(A, (tx) =>
           repository.listMembershipRoles(A, tx, ma),
@@ -224,7 +242,15 @@ export function standardRolesIntegrationTests() {
         true,
       );
       await service.ensureStandardRoles(A);
-      expect(await mappings(A)).toEqual([]);
+      expect((await mappings(A)).map((r) => [r.role_id, r.permission])).toEqual(
+        [
+          [
+            standardRoleId(A, "main_church_administrator"),
+            "church.settings.manage",
+          ],
+          [standardRoleId(A, "main_church_administrator"), "members.manage"],
+        ],
+      );
       expect(await authorization.hasPermission(A, ma, "members.view")).toBe(
         false,
       );
@@ -258,10 +284,10 @@ export function standardRolesIntegrationTests() {
         ).not.toBeNull();
         expect(await repository.deleteRole(A, tx, custom.id)).toBe(true);
       });
-      expect(await roles(A)).toHaveLength(4);
+      expect(await roles(A)).toHaveLength(5);
     });
     it.each(["member", "inactive", "follower", "left"] as const)(
-      "assigned empty standard roles grant nothing to %s relationships",
+      "assigned standard roles grant no unrelated or sessionless privileged permissions to %s relationships",
       async (status) => {
         const all = await service.ensureStandardRoles(A);
         await fixture.withTenant(A, async (tx) => {
@@ -282,11 +308,17 @@ export function standardRolesIntegrationTests() {
         expect(await authorization.hasPermission(A, ma, "events.create")).toBe(
           false,
         );
+        expect(await authorization.hasPermission(A, ma, "members.manage")).toBe(
+          false,
+        );
+        expect(
+          await authorization.hasPermission(A, ma, "church.settings.manage"),
+        ).toBe(false);
         expect(
           await fixture.withTenant(A, (tx) =>
             repository.listMembershipRoles(A, tx, ma),
           ),
-        ).toHaveLength(4);
+        ).toHaveLength(5);
       },
     );
     it("assignment and removal never change relationship state or infer a member baseline", async () => {
@@ -368,9 +400,19 @@ export function standardRolesIntegrationTests() {
     it("repeated migration runner preserves provisioned roles and grants", async () => {
       await service.ensureStandardRoles(A);
       const before = await roles(A);
+      const beforeMappings = await mappings(A);
       await migrateFixture(fixture.fixturePool);
+      expect(await mappings(A)).toEqual(beforeMappings);
       expect(await roles(A)).toEqual(before);
-      expect(await mappings(A)).toEqual([]);
+      expect((await mappings(A)).map((r) => [r.role_id, r.permission])).toEqual(
+        [
+          [
+            standardRoleId(A, "main_church_administrator"),
+            "church.settings.manage",
+          ],
+          [standardRoleId(A, "main_church_administrator"), "members.manage"],
+        ],
+      );
     });
   });
 }

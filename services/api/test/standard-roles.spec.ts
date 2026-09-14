@@ -14,16 +14,17 @@ const A = TenantContext.fromAuthorizedScope(
 const B = TenantContext.fromAuthorizedScope(
   "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
 );
-describe("non-privileged standard role registry", () => {
-  it("contains only the four approved stable keys and display labels", () => {
+describe("canonical standard role registry", () => {
+  it("contains only the five approved stable keys and display labels", () => {
     expect(STANDARD_ROLES.map(({ key, name }) => [key, name])).toEqual([
       ["group_leader", "Group Leader"],
       ["area_leader", "Area Leader"],
       ["event_administrator", "Event Administrator"],
       ["childrens_worker", "Children’s Worker"],
+      ["main_church_administrator", "Main Church Administrator"],
     ]);
   });
-  it.each(STANDARD_ROLES)(
+  it.each(STANDARD_ROLES.slice(0, 4))(
     "$key deliberately has no tenant-wide entitlement",
     (role) => {
       expect(role.permissions).toEqual([]);
@@ -35,17 +36,26 @@ describe("non-privileged standard role registry", () => {
       expect(Object.isFrozen(role.permissions)).toBe(true);
     },
   );
-  it("has immutable unique definitions and no privileged role", () => {
+  it("adds exactly the approved privileged admin bundle", () => {
+    expect(STANDARD_ROLES[4]).toMatchObject({
+      key: "main_church_administrator",
+      name: "Main Church Administrator",
+      isSystem: true,
+      privileged: true,
+      permissions: ["members.manage", "church.settings.manage"],
+    });
+    expect(Object.isFrozen(STANDARD_ROLES[4])).toBe(true);
+    expect(Object.isFrozen(STANDARD_ROLES[4]!.permissions)).toBe(true);
+  });
+  it("has immutable unique definitions and no ownership/platform role", () => {
     expect(Object.isFrozen(STANDARD_ROLES)).toBe(true);
-    expect(new Set(STANDARD_ROLES.map((r) => r.key)).size).toBe(4);
+    expect(new Set(STANDARD_ROLES.map((r) => r.key)).size).toBe(5);
     expect(new Set(STANDARD_ROLES.map((r) => r.name.toLowerCase())).size).toBe(
-      4,
+      5,
     );
-    expect(
-      STANDARD_ROLES.some((r) =>
-        /owner|superadmin|main church administrator/i.test(r.name),
-      ),
-    ).toBe(false);
+    expect(STANDARD_ROLES.some((r) => /owner|superadmin/i.test(r.name))).toBe(
+      false,
+    );
   });
   it("uses stable tenant-qualified IDs rather than display-name identity", () => {
     expect(standardRoleId(A, "group_leader")).toBe(
@@ -54,7 +64,7 @@ describe("non-privileged standard role registry", () => {
     const ids = [A, B].flatMap((c) =>
       STANDARD_ROLES.map((r) => standardRoleId(c, r.key)),
     );
-    expect(new Set(ids).size).toBe(8);
+    expect(new Set(ids).size).toBe(10);
     for (const id of ids) expect(parseRoleId(id)).toBe(id);
   });
   it("rejects forged scope and unknown runtime keys", () => {

@@ -5,7 +5,7 @@ import {
   StandardRoleConflictError,
 } from "./standard-roles.js";
 import { Injectable } from "@nestjs/common";
-import { and, eq, gt, asc } from "drizzle-orm";
+import { and, eq, gt, asc, notInArray } from "drizzle-orm";
 import type { DatabaseTransaction } from "../database/database.types.js";
 import { TenantContext } from "../database/tenant-context.js";
 import {
@@ -21,6 +21,7 @@ import {
   parseRolePage,
 } from "./role-policy.js";
 import {
+  PERMISSIONS,
   isPermissionKey,
   parsePermission,
   membershipAllowsPermission,
@@ -86,17 +87,28 @@ export class AuthorizationRepository {
           .returning();
         if (!current) throw new StandardRoleConflictError();
       }
-      // All four canonical bundles are deliberately empty in Task 1.13. Remove
-      // drift (including unregistered raw fixture keys), not merely known keys.
-      // Populating bundles later requires reviewed object-context authorization.
+      // Reconcile exactly: remove all stray keys (including unregistered drift),
+      // insert missing canonical keys, preserve existing canonical timestamps.
       await tx
         .delete(permission)
         .where(
           and(
             eq(permission.churchId, context.churchId),
             eq(permission.roleId, id),
+            definition.permissions.length
+              ? notInArray(permission.permission, [...definition.permissions])
+              : undefined,
           ),
         );
+      for (const key of definition.permissions)
+        await tx
+          .insert(permission)
+          .values({
+            churchId: context.churchId,
+            roleId: id,
+            permission: key,
+          })
+          .onConflictDoNothing();
       result.push({ key: definition.key, ...current });
     }
     return result;
@@ -317,7 +329,26 @@ export class AuthorizationRepository {
   ): Promise<boolean> {
     TenantContext.assert(context);
     if (!isPermissionKey(key)) return false;
-    // One current DB snapshot; no role-name checks, private user joins or cache.
+    // This sessionless compatibility boundary must never authorize privilege.
+    const requirements = PERMISSIONS[key];
+    if (
+      requirements.requiresPrivilegedAssurance ||
+      requirements.requiresRecentStepUp
+    )
+      return false;
+    return this.hasEligibleRolePermission(context, tx, membershipId, key);
+  }
+  // Assignment/membership eligibility ONLY, not an authorization result. The
+  // session-aware service additionally verifies session, current factor and assurance.
+  async hasEligibleRolePermission(
+    context: TenantContext,
+    tx: DatabaseTransaction,
+    membershipId: string,
+    key: unknown,
+  ): Promise<boolean> {
+    TenantContext.assert(context);
+    if (!isPermissionKey(key)) return false;
+    // One current DB snapshot; no role-name checks or cache.
     const [row] = await tx
       .select({ status: membership.status })
       .from(membership)

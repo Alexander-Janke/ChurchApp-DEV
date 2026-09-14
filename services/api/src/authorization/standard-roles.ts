@@ -5,15 +5,17 @@ function defineRole<K extends string>(
   key: K,
   name: string,
   description: string,
+  permissions: readonly PermissionKey[] = [],
+  privileged = false,
 ) {
   return Object.freeze({
     key,
     name,
     description,
     isSystem: true as const,
-    privileged: false as const,
-    // Intentionally empty: assigned-object capabilities are not tenant grants.
-    permissions: Object.freeze([] as PermissionKey[]),
+    privileged,
+    // Empty for the four assigned-object roles; the approved admin bundle is explicit.
+    permissions: Object.freeze([...permissions]),
   });
 }
 export const STANDARD_ROLES = Object.freeze([
@@ -36,6 +38,13 @@ export const STANDARD_ROLES = Object.freeze([
     "childrens_worker",
     "Children’s Worker",
     "Children’s ministry identity; operational context and safeguarding capabilities remain deferred.",
+  ),
+  defineRole(
+    "main_church_administrator",
+    "Main Church Administrator",
+    "Ordinary member and church settings administration; current verified 2FA and session elevation required.",
+    ["members.manage", "church.settings.manage"],
+    true,
   ),
 ]);
 export type StandardRoleKey = (typeof STANDARD_ROLES)[number]["key"];

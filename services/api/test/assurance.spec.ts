@@ -196,12 +196,50 @@ describe("permission and production completion boundaries", () => {
       }),
     ).toBe(false);
   });
-  it("requirements are immutable and no privileged catalog key is activated", () => {
+  it("requirements preserve exact ordinary versus privileged elevation classification", () => {
     expect(Object.isFrozen(PERMISSIONS)).toBe(true);
-    for (const meta of Object.values(PERMISSIONS)) {
+    for (const [key, meta] of Object.entries(PERMISSIONS)) {
       expect(Object.isFrozen(meta)).toBe(true);
-      expect(meta.requiresPrivilegedAssurance).toBe(false);
+      expect(meta.requiresPrivilegedAssurance).toBe(
+        key === "members.manage" || key === "church.settings.manage",
+      );
       expect(meta.requiresRecentStepUp).toBe(false);
     }
   });
+});
+
+describe("ordinary administrator permission assurance requirements", () => {
+  it.each(["members.manage", "church.settings.manage"] as const)(
+    "%s requires authenticated elevation but not critical step-up",
+    (key) => {
+      expect(
+        permissionAndAssurance(true, PERMISSIONS[key], {
+          authenticated: true,
+          elevated: true,
+          recentStepUp: false,
+        }),
+      ).toBe(true);
+      expect(
+        permissionAndAssurance(true, PERMISSIONS[key], {
+          authenticated: true,
+          elevated: false,
+          recentStepUp: true,
+        }),
+      ).toBe(false);
+      expect(
+        permissionAndAssurance(true, PERMISSIONS[key], {
+          authenticated: false,
+          elevated: true,
+          recentStepUp: true,
+        }),
+      ).toBe(false);
+      expect(
+        permissionAndAssurance(false, PERMISSIONS[key], {
+          authenticated: true,
+          elevated: true,
+          recentStepUp: true,
+        }),
+      ).toBe(false);
+    },
+  );
 });

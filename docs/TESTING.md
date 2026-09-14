@@ -2423,3 +2423,27 @@ backend fixture setup. HTTP/PostgreSQL integration provides this task's end-to-e
 backend coverage; no frontend onboarding UI or browser credential fixtures are added.
 Run frozen install, format, contracts/API/PostgreSQL, Drizzle, pinned Better Auth
 schema comparison, web/admin checks, Flutter and Playwright before review.
+
+## Task 1.19 — Main Church Administrator regression coverage
+
+Fast registry tests retain the four original empty/nonprivileged bundle assertions
+and add the exact fifth privileged role and two canonical permission requirements.
+Sessionless checks explicitly deny privileged keys. Unknown permissions remain denied.
+
+`support/main-church-administrator.integration.ts` uses disposable PostgreSQL and
+the restricted tenant runtime, with grants limited to non-secret factor/session
+columns needed for evaluation. Fixture-only identity/factor/assurance setup is not a
+production proof issuer. Cases cover exact bundles, missing/expired/session-mismatched
+elevation, disabled/unverified/missing/ambiguous factors, membership transitions,
+custom-role metadata inheritance, immediate grant removal, foreign tenant/session
+isolation, absolute session expiry, owner separation, exact reconciliation,
+concurrency, canonical collision rollback, mutation guards and explicit upgrades of
+existing four-role churches without automatic assignments. Existing native factor
+proof/disable, ownership, RLS and authentication tests remain required.
+
+Provisioning/onboarding regressions must expect five roles, exactly two administrator
+permission mappings and zero automatic assignments, retaining the original four empty
+bundles and every downstream failure rollback check. Clean/repeated migrations remain
+0000 through 0009; no new migration or Better Auth schema change belongs to this task.
+Run all canonical repository checks, including clients, Flutter and Playwright, before
+marking Task 1.19 ready for review. The permanent #10387 accepted-limitation probe remains.

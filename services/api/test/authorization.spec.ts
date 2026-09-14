@@ -30,13 +30,21 @@ import {
 } from "../src/database/schema/authorization.js";
 
 describe("authorization policy and internal boundary", () => {
-  it("has only the documented unique canonical keys, frozen without privileged grants", () => {
-    expect(Object.keys(PERMISSIONS)).toEqual(["members.view", "events.create"]);
-    expect(new Set(Object.keys(PERMISSIONS)).size).toBe(2);
+  it("has only the documented unique canonical keys, with exact immutable assurance requirements", () => {
+    expect(Object.keys(PERMISSIONS)).toEqual([
+      "members.view",
+      "events.create",
+      "members.manage",
+      "church.settings.manage",
+    ]);
+    expect(new Set(Object.keys(PERMISSIONS)).size).toBe(4);
     expect(Object.isFrozen(PERMISSIONS)).toBe(true);
-    for (const policy of Object.values(PERMISSIONS)) {
+    for (const [key, policy] of Object.entries(PERMISSIONS)) {
       expect(Object.isFrozen(policy)).toBe(true);
-      expect(policy.requiresPrivilegedAssurance).toBe(false);
+      expect(policy.requiresPrivilegedAssurance).toBe(
+        key === "members.manage" || key === "church.settings.manage",
+      );
+      expect(policy.requiresRecentStepUp).toBe(false);
     }
   });
   it.each([
@@ -82,6 +90,32 @@ describe("authorization policy and internal boundary", () => {
     "evaluates state %s and %s without role names",
     (status, key, expected) => {
       expect(membershipAllowsPermission(status, key)).toBe(expected);
+    },
+  );
+  it.each(["members.manage", "church.settings.manage"])(
+    "%s requires elevation and is never inactive eligible",
+    (key) => {
+      expect(PERMISSIONS[parsePermission(key)]).toEqual({
+        inactiveEligible: false,
+        requiresPrivilegedAssurance: true,
+        requiresRecentStepUp: false,
+      });
+      expect(membershipAllowsPermission("member", key)).toBe(true);
+      for (const state of ["inactive", "follower", "left"])
+        expect(membershipAllowsPermission(state, key)).toBe(false);
+    },
+  );
+  it.each(["members.manage", "church.settings.manage"])(
+    "sessionless repository cannot authorize %s or query around assurance",
+    async (key) => {
+      expect(
+        await new AuthorizationRepository().hasPermission(
+          TenantContext.fromAuthorizedScope(randomUUID()),
+          {} as DatabaseTransaction,
+          "member",
+          key,
+        ),
+      ).toBe(false);
     },
   );
   it("trims role labels and preserves Unicode without assigning meaning to a name", () => {
