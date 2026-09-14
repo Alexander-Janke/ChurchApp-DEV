@@ -2208,8 +2208,8 @@ Task 1.16 implementation is uncommitted and returned for review after validation
 
 ## Task 1.17 — Church Onboarding Foundation
 
-Task 1.17 maps to Phase 1I. This implementation is an internal foundation only,
-returned uncommitted for review; no HTTP onboarding route or UI is mounted.
+Task 1.17 maps to Phase 1I and is complete. It established the internal foundation;
+Task 1.18 adds its HTTP boundary below. No onboarding UI is mounted.
 Initial onboarding explicitly requires an authenticated session and verified/enabled
 2FA, without elevation or recent step-up. Existing ownership transfer remains
 subject to elevation and recent step-up. Atomic provisioning creates Church (active,
@@ -2220,4 +2220,19 @@ The server allocates new-tenant scope, enforces existing RLS and uses one transa
 for every stage; any failure rolls back all artifacts. No Main Church Administrator,
 verification submission, general administration or new schema is included. Task 1.7
 remains complete under the separately documented temporary #10387 exception.
-Task 1.18 has not been started or defined by this work.
+Task 1.18 is defined below as a separate HTTP exposure task.
+
+## Task 1.18 — Public Church Onboarding API
+
+Task 1.18 exposes the completed Task 1.17 Phase 1I foundation through only authenticated
+`POST /api/v1/churches`, returned uncommitted for review. Valid session, verified/enabled
+2FA and exact trusted Origin are required; initial onboarding requires no elevation
+or recent step-up. Three attempts per user per sliding hour are allowed locally.
+Strict canonical input cannot select creator, owner, tenant ID, state, roles or grants.
+
+The unchanged atomic service provisions active/unverified Church, creator Member,
+Primary Owner, mandatory audit and four empty nonprivileged system roles with zero
+assignments. Response mapping is explicit/no-store. General church administration,
+Main Church Administrator, Platform Superadmin, role/member management, ownership-
+transfer API and frontend onboarding remain deferred. Task 1.7's temporary #10387
+exception remains unchanged. Task 1.19 is not started or defined here.

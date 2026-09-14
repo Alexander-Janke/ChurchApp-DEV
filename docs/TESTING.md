@@ -2396,3 +2396,30 @@ session/factor/assurance preservation, safe result mapping, and clean/repeated
 migrations through 0009 are permanent regressions. No migration 0010 is introduced.
 Run full contracts/API/PostgreSQL/client/Flutter/Playwright checks, Drizzle validation
 and the pinned Better Auth schema comparison before review.
+
+## Task 1.18 — onboarding HTTP regressions
+
+`onboarding-http.spec.ts` exercises the real Nest controller/guard/pipe with isolated
+session/service doubles: server identity, statuses, exact Origin, strict protected/
+invalid fields, query selectors, no-store, response filtering, throttling and absent
+management routes. Sliding-hour boundaries and per-user limits are deterministic.
+
+`support/onboarding-http.integration.ts` uses AppModule, real signup/verification and
+real enrollment confirmation through the Task 1.11 disposable restricted-role harness.
+Named account-table DML grants let AuthModule use the same non-owner/NOBYPASSRLS
+runtime as onboarding. Privileged connections are only for setup/inspection and
+migration/failure triggers. An isolated pinned native generator supplies test codes;
+no factor flag or assurance is fabricated to authorize onboarding.
+
+Tests cover exact artifacts/defaults, invalid sessions and factors, Origin/input
+rejection, duplicate/concurrent same-slug one-winner behavior, per-user limits,
+response privacy, unchanged sessions/assurance, owner predicate and post-creation
+cross-tenant RLS. Real membership/owner/audit/role INSERT failures yield sanitized
+503 and zero artifacts. Clean/repeated migration remains through 0009 and preserves
+the HTTP-created result. All Task 1.17 rollback and prior auth/tenant tests remain.
+
+Existing Playwright tests cover client shells/public health without authenticated
+backend fixture setup. HTTP/PostgreSQL integration provides this task's end-to-end
+backend coverage; no frontend onboarding UI or browser credential fixtures are added.
+Run frozen install, format, contracts/API/PostgreSQL, Drizzle, pinned Better Auth
+schema comparison, web/admin checks, Flutter and Playwright before review.

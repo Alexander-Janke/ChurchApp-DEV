@@ -2316,9 +2316,10 @@ for internal writes. The separate accepted #10387 exception remains unchanged.
 
 ## Task 1.17 — Church Onboarding Foundation (Phase 1I)
 
-`OnboardingModule` exports the unmounted, server-internal
-`ChurchOnboardingService.createChurch(subject, input)`. There is no controller,
-HTTP onboarding route, startup provisioning, client contract or onboarding UI.
+`OnboardingModule` exports the server-internal
+`ChurchOnboardingService.createChurch(subject, input)`. Task 1.17 introduced no HTTP
+route; Task 1.18 adds the transport below. No startup provisioning, shared client
+contract or onboarding UI exists.
 The subject must come from AuthSessionReader; it is not a public identity DTO.
 The service revalidates the exact session against PostgreSQL and locks current
 identity/session/factor state. Initial onboarding requires a valid authenticated
@@ -2365,6 +2366,43 @@ role assignments and zero permission rows. Role definitions remain nonprivileged
 with empty bundles. No verification request, Main Church Administrator, wildcard
 owner permission, transfer, or generic church administration is performed. The
 internal result explicitly maps necessary church/membership/owner identifiers only;
-it exposes no session, factor or audit internals. Future HTTP exposure requires a
-separate review for caller policy, Origin/CSRF, creation limits and transport DTOs.
+it exposes no session, factor or audit internals. Task 1.18 adds the separately reviewed HTTP caller policy, Origin/CSRF,
+creation limits and transport DTOs below.
 The existing temporary better-auth/better-auth#10387 exception remains unchanged.
+
+## Task 1.18 — Public Church Onboarding API
+
+OnboardingHttpModule mounts only `POST /api/v1/churches` and imports the internal
+Task 1.17 module without changing its orchestration. AuthSessionReader supplies the
+cookie-authenticated user/session, forwarding cookie updates. The guard requires
+the exact configured Better Auth origin, rejects query parameters, and limits
+attempts by server-resolved user ID. Three attempts per sliding hour are allowed,
+including invalid input and failed operations after the Origin check. The bounded
+process-local limiter runs in all environments; capacity exhaustion denies new
+identities rather than evicting live limits. It is not distributed or restart-durable.
+
+The local request pipe delegates to parseChurchDetails: required `name` and `slug`;
+optional nullable `addressLine1`, `addressLine2`, `postalCode`, `locality`, `region`,
+`countryCode`, `denomination`, `logo`. This reuses the existing flat address shape,
+Unicode limits, lowercase slug normalization, uppercase country syntax and HTTPS
+logo policy. Unknown/protected fields, including creator/owner, lifecycle, membership,
+role, permission and factor selectors, fail validation. Request validation and the
+explicit response DTO remain local to Nest; no shared contracts change is needed.
+
+The unchanged service rechecks the valid session and verified/enabled factor inside
+its atomic transaction. Initial onboarding requires no elevation or step-up;
+ownership transfer retains its stricter requirements. Success returns 201 only after
+commit, with `church: {id,name,slug,status,verificationState}`, `membership: {id,status}`
+and `ownership: {isPrimaryOwner:true}`. Defaults remain active/unverified/member.
+The mapper excludes audit, role, credential, session and factor internals. Guarded
+responses carry `Cache-Control: no-store`.
+
+Stable sanitized Nest errors: 400 invalid body/query; 401 absent/revoked/expired
+session; 403 untrusted Origin or ineligible creator; 409 unavailable slug; 429 limit;
+503 unavailable session/storage/service. Session invalidation after the guard is
+rejected again inside the transaction; that late eligibility failure returns 403.
+All church/member/owner/audit/four-standard-role writes retain the same restricted
+PostgreSQL transaction. No assignments, wildcard permissions, verification submission,
+general administration, member/role management, transfer route, Main Church
+Administrator, Platform Superadmin or UI is added. No schema/migration or Better
+Auth change; the documented better-auth/better-auth#10387 exception is unchanged.

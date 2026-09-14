@@ -2439,7 +2439,7 @@ RLS remain enforced; transaction-local scope is set before INSERT because that
 INSERT is itself protected by RLS. No existing tenant can be selected through this
 service, and a uniqueness collision never updates the existing church. All dependent
 provisioning uses that same connection/scope. There is no broad privileged database
-bootstrap or public onboarding endpoint.
+bootstrap. Task 1.18 adds the separately reviewed HTTP boundary below.
 
 Church, creator membership, ownership, mandatory ownership audit and canonical roles
 commit atomically. Audit failure and role-provisioning failure roll back the entire
@@ -2447,5 +2447,31 @@ church, including earlier successful inserts. Failure messages omit driver detai
 and secrets. Ownership audit retains the existing minimal historical identifiers,
 not tokens. No role assignment or wildcard permission is implied by ownership.
 Trusted internal callers must propagate transaction errors rather than commit after
-failed provisioning. Future HTTP exposure, administration, verification review and
-onboarding UI are deferred. The accepted #10387 limitation is unchanged.
+failed provisioning. Task 1.18 adds HTTP exposure below; administration, verification review and
+onboarding UI remain deferred. The accepted #10387 limitation is unchanged.
+
+## Task 1.18 — authenticated onboarding transport
+
+`POST /api/v1/churches` is externally reachable but requires a database-authoritative
+session through AuthSessionReader. Task 1.17 rechecks the session and verified/enabled
+2FA inside its transaction before writes. Initial onboarding needs no elevation or
+recent step-up; ownership transfer is unchanged.
+
+Exact configured Origin is mandatory. Host/forwarded headers, arbitrary callbacks,
+body/query identity selectors and unknown/protected input cannot authorize creation.
+Only canonical church input is accepted. The existing server-generated tenant UUID,
+transaction-local RLS and atomic mandatory ownership audit remain authoritative.
+There is no new runtime SUPERUSER/BYPASSRLS/table-owner path.
+
+Three attempted requests per authenticated user per sliding hour are allowed after
+Origin validation. Invalid input, missing factor, conflicts and storage failures
+consume this budget. The bounded in-memory limiter applies in all environments and
+never evicts live limits to admit new users. It is single-instance and resets on
+restart; shared abuse prevention remains deferred. Existing auth limits are unchanged.
+
+Explicit response mapping/no-store and stable Nest exceptions exclude SQL, driver
+causes, credentials, sessions, factor material and audit internals. No request-body
+logging or duplicate audit framework is added. Every downstream provisioning failure
+rolls back the entire church. Ownership grants no wildcard permissions; standard
+roles retain empty bundles and zero assignments. No management/transfer API or
+Main Church Administrator is activated. The accepted #10387 exception is unchanged.
