@@ -1,3 +1,4 @@
+import { twoFactorIntegrationTests } from "./support/two-factor.integration.js";
 import { authorizationIntegrationTests } from "./support/authorization.integration.js";
 import { tenantHarnessIntegrationTests } from "./support/tenant/harness.integration.js";
 import { membershipIntegrationTests } from "./support/membership.integration.js";
@@ -85,6 +86,7 @@ describe("real PostgreSQL foundation", () => {
   });
 });
 
+twoFactorIntegrationTests();
 registrationIntegrationTests();
 sessionIntegrationTests();
 passwordIntegrationTests();
@@ -173,6 +175,7 @@ describe("Better Auth migrated PostgreSQL schema", () => {
       "church_role_permission",
       "email_change_request",
       "session",
+      "two_factor",
       "user",
       "user_profile",
       "verification",
@@ -180,7 +183,7 @@ describe("Better Auth migrated PostgreSQL schema", () => {
     const journal = await pool.query(
       "SELECT count(*)::int AS count FROM drizzle.__drizzle_migrations",
     );
-    expect(journal.rows[0].count).toBe(6);
+    expect(journal.rows[0].count).toBe(7);
   });
 
   it("starts AuthModule with default schema validation and queries every model through its real adapter", async () => {
@@ -190,7 +193,13 @@ describe("Better Auth migrated PostgreSQL schema", () => {
       ).instance.$context;
     expect(context.checkSchema).toBeTypeOf("function");
     await context.checkSchema!();
-    for (const model of ["user", "session", "account", "verification"]) {
+    for (const model of [
+      "user",
+      "session",
+      "account",
+      "verification",
+      "twoFactor",
+    ]) {
       await expect(
         context.adapter.findMany({ model, limit: 1 }),
       ).resolves.toEqual([]);
@@ -223,6 +232,9 @@ describe("Better Auth migrated PostgreSQL schema", () => {
       "session_pkey",
       "session_token_unique",
       "session_userId_idx",
+      "twoFactor_secret_idx",
+      "twoFactor_userId_idx",
+      "two_factor_pkey",
       "user_email_unique",
       "user_pkey",
       "user_profile_pkey",

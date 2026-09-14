@@ -1,3 +1,4 @@
+import { preparationTwoFactor } from "./auth-two-factor.js";
 import { emailChangePlugin } from "./email-change.plugin.js";
 import type { EmailChangeService } from "./email-change.service.js";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -89,7 +90,10 @@ export function createBetterAuth(
     user: {
       changeEmail: { enabled: false, updateEmailWithoutVerification: false },
     },
-    plugins: [emailChangePlugin(emailChanges, getBetterAuthUrl())],
+    plugins: [
+      emailChangePlugin(emailChanges, getBetterAuthUrl()),
+      preparationTwoFactor(),
+    ],
     basePath: BETTER_AUTH_BASE_PATH,
     secret: getBetterAuthSecret(),
     database: drizzleAdapter(database, { provider: "pg", schema: authSchema }),
@@ -121,6 +125,23 @@ export function createBetterAuth(
       },
     },
     databaseHooks: {
+      session: {
+        create: {
+          before: async (session, ctx) => {
+            // Native disable rotates its current session. Rotation must not reset
+            // the application-owned absolute lifetime or use caller timestamps.
+            if (ctx?.path === "/two-factor/disable") {
+              const current = ctx.context.session;
+              if (!current || current.user.id !== session.userId) {
+                throw new APIError("UNAUTHORIZED", { message: "Unauthorized" });
+              }
+              return {
+                data: { ...session, createdAt: current.session.createdAt },
+              };
+            }
+          },
+        },
+      },
       account: {
         create: {
           before: async (account, ctx) => {

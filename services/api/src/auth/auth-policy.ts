@@ -1,3 +1,4 @@
+import { enforceTwoFactorPreparation } from "./auth-two-factor.js";
 import { Logger } from "@nestjs/common";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import type { AuthEmailSender } from "./auth-email.js";
@@ -68,6 +69,7 @@ export function createAuthPolicy(
     }
     const sessionResult = await enforceSessionPolicy(ctx, sessionPolicy);
     if (sessionResult) return sessionResult;
+    enforceTwoFactorPreparation(ctx);
     return enforcePasswordRequest(ctx);
   });
 }

@@ -72,6 +72,7 @@ describe("normal web session policy", () => {
     expect(auth.options).not.toHaveProperty("secondaryStorage");
     expect(auth.options.plugins?.map((plugin) => plugin.id)).toEqual([
       "application-email-change",
+      "two-factor",
     ]);
     expect(auth.options).not.toHaveProperty("rateLimit");
   });

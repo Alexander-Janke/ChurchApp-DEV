@@ -90,6 +90,15 @@ export function createSessionResponsePolicy(
     // No HTTP cache or ordinary JSON consumer may become session authority.
     ctx.setHeader("cache-control", "no-store");
     ctx.setHeader("pragma", "no-cache");
+    if (
+      ctx.path === "/two-factor/disable" &&
+      returned &&
+      typeof returned === "object" &&
+      "status" in returned &&
+      returned.status === true
+    ) {
+      return ctx.json({ status: true, sessionRotated: true });
+    }
     try {
       if (ctx.path === "/sign-out") {
         const token = await ctx.getSignedCookie(

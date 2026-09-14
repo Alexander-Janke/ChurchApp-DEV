@@ -196,7 +196,11 @@ export function profileIntegrationTests() {
           ],
         );
         const beforeUser = JSON.stringify(
-          (await upgradePool.query('SELECT * FROM "user"')).rows,
+          (
+            await upgradePool.query(
+              'SELECT id,name,email,email_verified,image,created_at,updated_at FROM "user"',
+            )
+          ).rows,
         );
         const beforeWorkflow = JSON.stringify(
           (await upgradePool.query("SELECT * FROM email_change_request")).rows,
@@ -205,7 +209,11 @@ export function profileIntegrationTests() {
         await migrate(drizzle(upgradePool), { migrationsFolder: folder });
         expect(
           JSON.stringify(
-            (await upgradePool.query('SELECT * FROM "user"')).rows,
+            (
+              await upgradePool.query(
+                'SELECT id,name,email,email_verified,image,created_at,updated_at FROM "user"',
+              )
+            ).rows,
           ) === beforeUser,
         ).toBe(true);
         expect(
@@ -224,7 +232,7 @@ export function profileIntegrationTests() {
               "SELECT count(*)::int n FROM drizzle.__drizzle_migrations",
             )
           ).rows[0].n,
-        ).toBe(6);
+        ).toBe(7);
       } finally {
         await upgradePool?.end();
         if (upgradeCreated)
@@ -555,7 +563,7 @@ export function profileIntegrationTests() {
       await pool.query('DELETE FROM "user" WHERE id=$1', [id]);
       expect(await profileRows()).toHaveLength(0);
     });
-    it("repeated migrations preserve profile and identity data with exactly six applied entries", async () => {
+    it("repeated migrations preserve profile and identity data with exactly seven applied entries", async () => {
       await patch({ username: "alex", dateOfBirth: "2000-02-29" }).expect(200);
       const before = JSON.stringify(await profileRows());
       await migrate(drizzle(pool), { migrationsFolder: folder });
@@ -566,7 +574,7 @@ export function profileIntegrationTests() {
             "SELECT count(*)::int n FROM drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(6);
+      ).toBe(7);
       expect((await get().expect(200)).body.id).toBe(id);
     });
   });

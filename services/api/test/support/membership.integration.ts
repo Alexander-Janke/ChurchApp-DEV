@@ -41,7 +41,7 @@ export function membershipIntegrationTests() {
     let preserved = false;
     let beforeUpgrade: unknown[] = [];
     const preservationQuery =
-      'SELECT row_to_json(u) u,row_to_json(p) p,row_to_json(e) e,row_to_json(c) c FROM "user" u JOIN user_profile p ON p.user_id=u.id JOIN email_change_request e ON e.user_id=u.id CROSS JOIN church c';
+      "SELECT (to_jsonb(u)-'two_factor_enabled') u,row_to_json(p) p,row_to_json(e) e,row_to_json(c) c FROM \"user\" u JOIN user_profile p ON p.user_id=u.id JOIN email_change_request e ON e.user_id=u.id CROSS JOIN church c";
     let fixture: TenantTestFixture;
     let fixturePool: Pool, runtimePool: Pool;
     let runtimeDb: DatabaseService,
@@ -110,7 +110,7 @@ export function membershipIntegrationTests() {
             "select count(*)::int n from drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(6);
+      ).toBe(7);
     });
     it("uses a real restricted login without superuser, BYPASSRLS, owner membership or table ownership", async () => {
       await fixture.assertRestrictedRole();

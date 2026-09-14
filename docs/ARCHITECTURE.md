@@ -1932,3 +1932,59 @@ through the repository inside the protected operation's same transaction.
 Administrative assignment APIs also require entitlement and auditing before release.
 Task 1.7 remains blocked; no owner/admin capabilities, TOTP workaround, standard-role
 activation, object-scoped permissions or Task 1.13 work are included.
+
+## Task 1.7a — gated two-factor preparation
+
+`AuthModule` still owns one Better Auth 1.7.4 instance. Its application-owned
+`auth-two-factor.ts` boundary retains the official plugin's schema, credential
+challenge hooks and limits, but mounts only these POST operations beneath
+`/api/v1/auth/two-factor`:
+
+- `enable`: authenticated current-password proof, issuer `Church Platform`, native
+  six-digit/30-second TOTP setup URI and ten newly generated backup codes.
+- `generate-backup-codes`: current-password proof and native enabled-state check;
+  rotates unused codes without adding a session. Pending enrollment instead
+  replaces its material through another `enable` request.
+- `disable`: current-password proof and a database-authoritative session; removes
+  factor material and clears native enabled state. Native behavior rotates the
+  current session cookie/row. A session-create hook preserves its original
+  `createdAt`, and the response explicitly includes `sessionRotated: true`.
+- `verify-totp` and `verify-backup-code`: application handlers always return 503
+  `SECOND_FACTOR_UNAVAILABLE`; they never invoke the native verifiers. The
+  code-owned `SECURE_TOTP_VERIFICATION_ENABLED = false` cannot be changed by env.
+
+No OTP send/verify, subsequent TOTP URI retrieval, backup-code viewing or server
+TOTP generation API is mounted. Setup and rotation responses are `no-store`.
+Native `enable` and code rotation require password and session, without a separate
+freshness-age check. Native disable uses authoritative session middleware, which
+also does not itself enforce `freshSessionMiddleware`'s age window. These password
+proofs do not implement future privileged step-up.
+
+Enrollment remains `two_factor.verified = false` and does not set
+`user.twoFactorEnabled`. Native confirmation uses the vulnerable verifier and is
+not available even for enrollment. A pending setup does not protect later logins:
+ordinary password sessions remain ordinary sessions. For a native-enabled state,
+password sign-in creates only a signed ten-minute two-factor challenge backed by
+verification records; it deletes the interim session. The challenge cannot access
+profile/member resources or complete authentication through either blocked path.
+`twoFactorEnabled`, enrollment and backup-code possession are never assurance;
+Task 1.12 privileged eligibility remains separately fail-closed and unchanged.
+
+Migration `0006_two_factor_foundation` adds only the pinned generator's
+`user.two_factor_enabled` boolean (default false) and global `two_factor` table:
+`id` text PK; `secret`, `backup_codes`, `user_id` non-null text;
+`verified` boolean default true; `failed_verification_count` integer default zero;
+`locked_until` timestamp. Native enable explicitly writes `verified=false`.
+Canonical indexes cover `secret` and `user_id`; the user FK cascades deletion.
+These are Better Auth plugin-owned objects, without tenant columns or tenant RLS.
+Application-owned email-change/profile tables stay separate. No automatic
+migration or replay-consumption table is added.
+
+Disable changes only the caller's factor state. The native session rotation
+preserves the original application 30-day absolute limit; other sessions are not
+silently added or upgraded. Password change/reset and email change leave factor
+material intact, and a native-enabled account still challenges on its next login.
+A reset revokes sessions as before; email change neither restores codes nor grants
+assurance. Trusted-device cookies are rejected on credential sign-in, and the
+preparation operations reject client fields such as `trustDevice`, `issuer`,
+`method` and `userId`. No client can choose OTP mode or a trusted-device bypass.

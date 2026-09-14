@@ -167,6 +167,7 @@ export function registrationIntegrationTests() {
       expect(/^[a-f0-9]{32}:[a-f0-9]{128}$/.test(account.password)).toBe(true);
       expect(response.body.token === null).toBe(true);
       expect(response.body.user.emailVerified).toBe(false);
+      expect(response.body.user.twoFactorEnabled).toBe(false);
       expect(Object.keys(response.body).sort()).toEqual(["token", "user"]);
       expect(Object.keys(response.body.user).sort()).toEqual([
         "createdAt",
@@ -175,6 +176,7 @@ export function registrationIntegrationTests() {
         "id",
         "image",
         "name",
+        "twoFactorEnabled",
         "updatedAt",
       ]);
       expect(

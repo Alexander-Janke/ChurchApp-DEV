@@ -2161,3 +2161,36 @@ membership rows; repeated migration preserves authorization rows with six journa
 entries. The pinned Better Auth schema comparison remains independent of these
 application-owned tables. Existing auth/profile/church/membership tests remain
 required. No privileged authorization is claimed while Task 1.7 is blocked.
+
+## Task 1.7a preparation and blocker tests
+
+`auth-two-factor.spec.ts` verifies the fixed false gate across test/development/
+production configuration, endpoint allowlist, native rate-limit metadata, retained
+schema/challenge hooks and safe 503 responses. `support/two-factor.integration.ts`
+is registered only in the PostgreSQL suite and uses a fresh migrated disposable
+DB and the application AuthModule. It verifies pending encrypted enrollment,
+password/ownership/origin checks, absolute expiry, no-store and secret/log hygiene,
+code rotation, explicit session rotation without absolute-age reset, user deletion,
+real endpoint limiting and password/reset/email-change preservation.
+
+An explicitly isolated native Better Auth instance exists only in that test file.
+Its Date-only frozen clock records the known unsafe same-code/same-timestep result
+across two independent challenges. The application counterpart rejects both valid
+attempts, creates no session and returns no assurance. The native probe is an
+expected blocker, not a passing claim of replay protection. Main CI stays green
+because the shipped gate denies verification. Native backup probes require exactly
+one concurrent success, safe loser rejection (401 or 409), sequential/unknown/
+foreign-code rejection and old-code invalidation after rotation. Native-enabled
+fixtures originate from that isolated enrollment verifier; production has no
+flag override or test user path.
+
+All previous auth, email-change, profile and tenant/permission tests remain in the
+suite. Migration checks now include 0000 through 0006, preserving prior fields and
+rows while adding the generator-owned nullable/defaulted user flag. Re-running
+migrations preserves factor material. Pinned schema generation uses the actual
+application configuration; only canonical two-factor additions are expected.
+
+Task 1.7b must replace the expected-native-blocker characterization only after an
+approved fix passes independent sequential and concurrent replay tests and the
+full authentication regression suite. Tests must never enable privileged features
+or manufacture MFA assurance to bypass this requirement.

@@ -43,6 +43,13 @@
       "when": 1789387355841,
       "tag": "0005_roles_permissions_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789389589459,
+      "tag": "0006_two_factor_foundation",
+      "breakpoints": true
     }
   ]
 }

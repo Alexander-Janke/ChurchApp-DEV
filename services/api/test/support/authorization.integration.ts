@@ -53,7 +53,7 @@ export function authorizationIntegrationTests() {
     let preserved = false;
     let preservationBefore: unknown;
     const preservationQuery =
-      'select row_to_json(u) u,row_to_json(p) p,row_to_json(e) e,row_to_json(c) c,row_to_json(m) m from "user" u join user_profile p on p.user_id=u.id join email_change_request e on e.user_id=u.id join church_membership m on m.user_id=u.id join church c on c.id=m.church_id';
+      "select (to_jsonb(u)-'two_factor_enabled') u,row_to_json(p) p,row_to_json(e) e,row_to_json(c) c,row_to_json(m) m from \"user\" u join user_profile p on p.user_id=u.id join email_change_request e on e.user_id=u.id join church_membership m on m.user_id=u.id join church c on c.id=m.church_id";
     beforeAll(async () => {
       fixture = await createTenantTestFixture({
         protectedTables: tables,
@@ -129,7 +129,7 @@ export function authorizationIntegrationTests() {
         );
       return rows;
     };
-    it("applies 0000 through 0005, preserving auth/profile/email-change/church/membership data, and repeats safely", async () => {
+    it("applies 0000 through 0006, preserving auth/profile/email-change/church/membership data, and repeats safely", async () => {
       expect(preserved).toBe(true);
       const before = await state();
       await migrateFixture(fixture.fixturePool);
@@ -140,7 +140,7 @@ export function authorizationIntegrationTests() {
             "select count(*)::int n from drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(6);
+      ).toBe(7);
     });
     it("asserts all five tables against the real restricted runtime login", async () => {
       await fixture.assertRestrictedRole();

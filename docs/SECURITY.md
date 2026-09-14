@@ -2180,3 +2180,53 @@ No password or social session alone satisfies privileged assurance. Task 1.7 rem
 blocked; future protected capabilities require secure TOTP and the ADR 0003/Phase 1L
 assurance gate, plus audit trails for administrative mutations. No ownership,
 standard privileged roles, administration APIs or bypasses are activated here.
+
+## Task 1.7a security boundary; Task 1.7b remains blocked
+
+The isolated PostgreSQL/Drizzle probe reproduces Better Auth 1.7.4 issue #10387:
+one currently valid code is accepted on two independent login challenges in the
+same timestep. Native TOTP uses six digits, 30 seconds, SHA-1 and the utility's
+one-step tolerance on either side; it does not consume an accepted timestep.
+Native enrollment confirmation uses that same verifier. The application therefore
+never invokes it: both TOTP and backup-code completion return a generic 503.
+This is a disabled authentication path, not a replay workaround. No second-factor
+assurance or privileged capability can be granted by Task 1.7a.
+
+Native secret storage is symmetric encryption using the Better Auth secret.
+`two_factor.backup_codes` contains an encrypted JSON array of ten random codes,
+each ten alphanumeric characters displayed in `xxxxx-xxxxx` format. It is not a
+hash: unused codes can be recovered with the ciphertext and authentication secret.
+Secret/code retrieval APIs are omitted; only explicit setup/rotation disclose the
+new material, with `Cache-Control: no-store`. Secrets, URIs, codes, passwords and
+session tokens must not enter logs or ordinary JSON. Pending enrollment may be
+replaced, invalidating old material; an already verified native record cannot be
+replaced through enable.
+
+The isolated native recovery probe proves one successful consumption across two
+independent concurrent challenges. The losing request is 409 if its conditional
+write loses, or 401 if it reads the already consumed list; subsequent reuse is
+401. Consumption uses an atomic adapter compare-and-swap on the encrypted code
+list. Rotation invalidates unused old codes without adding sessions. Recovery
+login remains blocked in the application pending review; it is not automatically
+activated merely because the native concurrency probe passes.
+
+Native challenge records last ten minutes and have a five-attempt budget. Native
+account protection defaults to ten failures and a 15-minute lock, with reset after
+success/expired-lock handling. These native mechanisms do not fix TOTP replay and
+are exercised only in the isolated verifier probes while production completion is
+blocked. Native endpoint limits (three requests per ten seconds for two-factor
+paths), trusted-origin and CSRF checks remain. Limiting is in-memory and is not a
+distributed abuse-prevention system. Blocked requests can return 429 when limited.
+
+Native disable requires password re-entry and a database-authoritative session;
+it is not privileged step-up. Its cookie/session rotation is explicitly reported
+and preserves original `createdAt`. Native multi-write enable/disable operations
+are not one transaction; failures are surfaced and logged only through sanitized
+auth diagnostics. No atomic-operation claim is made. No ownership or administrative
+function becomes usable here. Native trusted-device bypass is prevented even for
+an existing correctly signed trust cookie; no supported endpoint creates one.
+
+Task 1.7b requires reviewed proof of durable, atomic one-use-per-timestep behavior
+across independent challenges before enabling trusted verification. An approved
+upstream fix or a separately approved application replay-guard design may satisfy
+that requirement. Dependency upgrades must not silently activate this path.

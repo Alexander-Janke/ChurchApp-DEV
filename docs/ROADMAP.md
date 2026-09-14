@@ -273,8 +273,10 @@ is authenticated self-profile only, using an application-owned one-to-one
 user_profile table and the canonical Better Auth user.image reference.
 Public/member directories, visibility controls and client UI remain deferred.
 
-Task 1.7 — TOTP Two-Factor Authentication
-Status: BLOCKED — upstream Better Auth TOTP replay issue #10387.
+Task 1.7a — 2FA Foundation, Enrollment & Recovery: complete (preparation scope only).
+Task 1.7b — Secure TOTP Verification / Replay Protection: BLOCKED — upstream
+Better Auth TOTP replay issue #10387. Task 1.7 as a whole is not complete.
+Preparation does not activate trusted second-factor login or privileged assurance.
 This blocker remains independent of ordinary self-profile work. No privileged
 capability may bypass the TOTP/assurance prerequisites in Phase 1L.
 
@@ -2096,3 +2098,20 @@ tenant-scoped role bundles, assignments and centralized permission evaluation on
 No public mutation API, standard role activation or privileged capability is enabled.
 Task 1.7 secure TOTP remains BLOCKED by upstream Better Auth issue #10387; privileged
 assurance and administrative/ownership functionality remain deferred.
+
+## Task 1.7a / 1.7b acceptance boundary
+
+Task 1.7a prepares canonical encrypted enrollment and backup material, native
+recovery rotation and password-protected disable. Enrollment remains pending;
+TOTP and backup-code login completion are blocked in all application environments.
+No trusted devices, assurance, privileged roles, Primary Owner or elevation are
+activated. Task 1.13 is not part of this work.
+
+Task 1.7b needs either an explicitly approved upstream version proving at most
+one acceptance per TOTP timestep across sequential and concurrent independent
+challenges, or a separately reviewed durable database-backed atomic replay guard.
+Neither an upgrade nor that guard is implemented in Task 1.7a. Before an upstream
+upgrade: review security/changelog impact, pin the version, regenerate/compare
+schema and migrations, run both replay probes and the full authentication suite,
+and only then review enabling trusted verification. No automatic upgrade or
+activation is allowed.
