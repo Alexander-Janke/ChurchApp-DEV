@@ -1830,3 +1830,35 @@ not role-name authorization. Member and Primary Owner are not ordinary roles.
 No external role mutation API or privileged standard-role activation is provided;
 secure TOTP and the separate assurance gate remain prerequisites for protected
 capabilities. The full permission catalog and object-scoped policies remain future work.
+
+## Task 1.13 canonical standard-role bundles
+
+Phase 1G initially provisions only the following system-role identities. Every
+row below has `isSystem=true` and `privileged=false`. The exact canonical
+permission set is deliberately empty, not missing initialization data.
+
+| Stable key | Display name | Canonical description | Permissions |
+| --- | --- | --- | --- |
+| `group_leader` | Group Leader | Assigned-group leadership; group-scoped capabilities remain deferred. | `[]` |
+| `area_leader` | Area Leader | Assigned-area coordination; area-scoped capabilities remain deferred. | `[]` |
+| `event_administrator` | Event Administrator | Assigned-event coordination; event-scoped capabilities remain deferred. | `[]` |
+| `childrens_worker` | Children’s Worker | Children’s ministry identity; operational context and safeguarding capabilities remain deferred. | `[]` |
+
+Documented Group Leader and Area Leader access requires assigned objects; Event
+Administrator access requires assigned events. Children’s Worker access requires
+operational need-to-know and safeguarding/audit controls. Until those contexts
+exist, no church-wide substitute is granted. In particular Event Administrator
+does not imply `events.create`, and none of these bundles includes `members.view`.
+No new permission keys are introduced. Future changes require explicit permission
+review and the corresponding object-context authorization.
+
+Assignment uses the existing tenant membership-role model and never upgrades the
+relationship state. With these empty bundles, member, inactive, follower and left
+relationships all receive no role-derived permission from them. Existing separate
+custom-role grants still follow Task 1.12: member normally; inactive only explicitly
+eligible permissions; follower/left never. Baseline member access is not inferred
+from standard-role names. No permission cache is introduced.
+
+Canonical provisioning reconciles exact bundles, removing stray grants from these
+four system roles. Generic role mutation cannot rename, delete or edit their
+bundles. No privileged/ownership/platform role is made usable by this foundation.

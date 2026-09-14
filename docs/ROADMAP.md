@@ -2115,3 +2115,14 @@ upgrade: review security/changelog impact, pin the version, regenerate/compare
 schema and migrations, run both replay probes and the full authentication suite,
 and only then review enabling trusted verification. No automatic upgrade or
 activation is allowed.
+
+## Task 1.13 mapping
+
+Task 1.13 — Non-Privileged Standard Roles maps to Phase 1G. It prepares the Group
+Leader, Area Leader, Event Administrator and Children’s Worker system identities
+and explicit tenant-scoped, idempotent provisioning. All four canonical bundles
+are deliberately empty until their assigned-object/operational authorization
+exists; no church-wide substitute, automatic assignment or public management API
+is enabled. They are not fully operational roles yet. Main Church Administrator
+remains blocked behind Task 1.7b/privileged assurance; Primary Owner and Platform
+Superadmin remain outside tenant standard-role provisioning.

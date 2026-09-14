@@ -1,3 +1,9 @@
+import { church } from "../database/schema/church.js";
+import {
+  STANDARD_ROLES,
+  standardRoleId,
+  StandardRoleConflictError,
+} from "./standard-roles.js";
 import { Injectable } from "@nestjs/common";
 import { and, eq, gt, asc } from "drizzle-orm";
 import type { DatabaseTransaction } from "../database/database.types.js";
@@ -24,6 +30,78 @@ import {
 // SAME tenant transaction. Future mutation APIs require separate entitlement/audit.
 @Injectable()
 export class AuthorizationRepository {
+  // Explicit internal provisioning only. Same tenant transaction as every other
+  // repository method; no startup hook, assignment, or RLS bypass.
+  async ensureStandardRoles(context: TenantContext, tx: DatabaseTransaction) {
+    TenantContext.assert(context);
+    // Serialize this church's provisioning across connections/processes. This
+    // scoped lock also makes deletion of the parent church wait for the operation.
+    const [parent] = await tx
+      .select({ id: church.id })
+      .from(church)
+      .where(eq(church.id, context.churchId))
+      .for("update");
+    if (!parent) throw new Error("Standard role tenant unavailable");
+    const result = [];
+    for (const definition of STANDARD_ROLES) {
+      const id = standardRoleId(context, definition.key);
+      let [current] = await tx
+        .select()
+        .from(role)
+        .where(and(eq(role.churchId, context.churchId), eq(role.id, id)))
+        .for("update");
+      if (current && !current.isSystem) throw new StandardRoleConflictError();
+      if (!current) {
+        [current] = await tx
+          .insert(role)
+          .values({
+            id,
+            churchId: context.churchId,
+            name: definition.name,
+            description: definition.description,
+            isSystem: true,
+          })
+          .onConflictDoNothing()
+          .returning();
+        // Includes case-insensitive label collisions: never adopt existing rows.
+        if (!current) throw new StandardRoleConflictError();
+      } else if (
+        current.name !== definition.name ||
+        current.description !== definition.description
+      ) {
+        [current] = await tx
+          .update(role)
+          .set({
+            name: definition.name,
+            description: definition.description,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(role.churchId, context.churchId),
+              eq(role.id, id),
+              eq(role.isSystem, true),
+            ),
+          )
+          .returning();
+        if (!current) throw new StandardRoleConflictError();
+      }
+      // All four canonical bundles are deliberately empty in Task 1.13. Remove
+      // drift (including unregistered raw fixture keys), not merely known keys.
+      // Populating bundles later requires reviewed object-context authorization.
+      await tx
+        .delete(permission)
+        .where(
+          and(
+            eq(permission.churchId, context.churchId),
+            eq(permission.roleId, id),
+          ),
+        );
+      result.push({ key: definition.key, ...current });
+    }
+    return result;
+  }
+
   async getRole(context: TenantContext, tx: DatabaseTransaction, id: string) {
     TenantContext.assert(context);
     const [row] = await tx

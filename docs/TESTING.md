@@ -2194,3 +2194,25 @@ Task 1.7b must replace the expected-native-blocker characterization only after a
 approved fix passes independent sequential and concurrent replay tests and the
 full authentication regression suite. Tests must never enable privileged features
 or manufacture MFA assurance to bypass this requirement.
+
+## Task 1.13 standard-role tests
+
+`standard-roles.spec.ts` checks the exact four keys/labels, frozen metadata,
+non-privileged flags, intentionally empty bundles, unique tenant-qualified stable
+IDs, input rejection and sanitized conflict diagnostics. Empty bundles are an
+explicit security assertion; tests must not fill them with broader tenant grants.
+
+`support/standard-roles.integration.ts` runs through the Task 1.11 disposable
+database harness with a restricted NOBYPASSRLS, non-owner role. It covers explicit
+provisioning, unchanged re-runs, simultaneous connections, separate tenants,
+metadata/bundle reconciliation, custom/reserved-ID collisions and whole-batch
+rollback, preservation of custom grants/assignments, generic system-role guards,
+all four relationship states and no automatic membership upgrade. Repository and
+raw composite-FK probes reject cross-tenant assignments; missing/mismatched scope
+cannot provision. Permission drift removal affects the next evaluation.
+
+Fixture-owner access is limited to setup/corruption fixtures and migration
+administration; protected behavior is exercised and asserted through restricted
+tenant transactions. The existing 0000–0006 migration chain is applied to clean
+disposable databases and repeated without changing provisioned roles. There is no
+Task 1.13 migration. Better Auth-owned schema comparison remains unchanged.

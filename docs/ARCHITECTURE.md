@@ -1988,3 +1988,45 @@ A reset revokes sessions as before; email change neither restores codes nor gran
 assurance. Trusted-device cookies are rejected on credential sign-in, and the
 preparation operations reject client fields such as `trustDevice`, `issuer`,
 `method` and `userId`. No client can choose OTP mode or a trusted-device bypass.
+
+## Task 1.13 standard-role identity and provisioning foundation
+
+Phase 1G now has four canonical system-role identities in
+`services/api/src/authorization/standard-roles.ts`: Group Leader, Area Leader,
+Event Administrator and Children’s Worker. Every definition is frozen,
+`isSystem=true`, `privileged=false`, with an intentionally empty permission bundle.
+Assigned group, area, event and child operational capabilities cannot yet be
+represented safely by tenant-wide grants. Neither `members.view` nor the separately
+delegable `events.create` capability is inferred from these roles. The Task 1.12
+permission registry and membership-state policy are unchanged. These roles are
+prepared identities, not fully operational feature access.
+
+`StandardRoleService.ensureStandardRoles(context)` is an explicit internal
+operation, exported by the still-unmounted AuthorizationModule. It requires a
+trusted TenantContext and uses the existing TenantDatabase transaction and scoped
+AuthorizationRepository. There is no HTTP endpoint, startup seed, migration seed
+or automatic membership-role assignment. Future invocation needs a reviewed
+provisioning/authorization boundary; possession of TenantContext is scope, not
+permission to administer roles.
+
+The existing text role primary key stores stable identity as
+`system-role:<canonical church UUID>:<fixed role key>`. This unambiguous namespace
+and its four keys are persistent compatibility identifiers; display-name changes
+do not change identity. Custom-role creation still generates its own random ID and
+cannot select this namespace or set isSystem. No key column or migration is needed.
+
+Provisioning locks the scoped church row for the transaction, serializing same-
+church runs across connections/processes, then creates missing identities and
+reconciles canonical names/descriptions and exact empty bundles. Extra mappings
+are deleted only for these four canonical system rows; custom roles, their grants
+and assignments are preserved. Repeated unchanged provisioning preserves IDs and
+timestamps. A reserved ID occupied by a custom row, or a case-insensitive display-
+name collision, fails the whole transaction with a sanitized
+`STANDARD_ROLE_CONFLICT`; no existing custom/differently identified row is adopted.
+The operation does not grant authority from role labels and does not cache results.
+
+Future bundle activation requires explicit reviewed changes after group/area/event
+object authorization or child operational scope, safeguarding and auditing exist.
+Main Church Administrator remains blocked on Task 1.7b and privileged assurance;
+Primary Owner remains a protected ownership relationship; Platform Superadmin
+remains platform-scoped. None is provisioned here.

@@ -2230,3 +2230,25 @@ Task 1.7b requires reviewed proof of durable, atomic one-use-per-timestep behavi
 across independent challenges before enabling trusted verification. An approved
 upstream fix or a separately approved application replay-guard design may satisfy
 that requirement. Dependency upgrades must not silently activate this path.
+
+## Task 1.13 standard-role safety boundary
+
+The four non-privileged standard roles intentionally grant no permissions until
+their required object/operational scopes exist. A system flag, stable role key or
+display name is never MFA assurance or an authorization bypass. Task 1.7b stays
+blocked; administrative and ownership capabilities remain inactive. The existing
+permission registry, inactive-eligibility defaults and follower/left denial are
+unchanged.
+
+Explicit internal provisioning uses a trusted TenantContext, scoped queries, the
+restricted runtime role and existing FORCE RLS/composite foreign keys. A scoped
+church row lock serializes concurrent reconciliation; all four roles commit or
+roll back together. Display-name collisions never convert a custom role. Exact
+bundle reconciliation removes unauthorized mapping drift from canonical rows,
+with the next uncached evaluation observing revocation. Custom roles remain
+untouched. Errors expose only a generic provisioning failure or safe collision
+code, without database details.
+
+No HTTP mutation surface, automatic assignment or production seed is added. Later
+role-management operations still require explicit authorization and audit design;
+this internal provisioning capability must not be exposed to clients directly.

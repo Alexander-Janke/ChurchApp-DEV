@@ -1,3 +1,4 @@
+import { standardRolesIntegrationTests } from "./support/standard-roles.integration.js";
 import { twoFactorIntegrationTests } from "./support/two-factor.integration.js";
 import { authorizationIntegrationTests } from "./support/authorization.integration.js";
 import { tenantHarnessIntegrationTests } from "./support/tenant/harness.integration.js";
@@ -342,3 +343,5 @@ describe("Better Auth migrated PostgreSQL schema", () => {
 tenantHarnessIntegrationTests();
 
 authorizationIntegrationTests();
+
+standardRolesIntegrationTests();
