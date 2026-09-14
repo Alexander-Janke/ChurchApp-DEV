@@ -2084,3 +2084,53 @@ upgrade preserves auth/email-change/profile/church data; repeat migration preser
 relationship data and records exactly five applied entries. Existing security suites
 remain mandatory. Pinned Better Auth 1.7.4 generation must still reproduce its core
 schema unchanged; church_membership remains application-owned.
+
+## Task 1.11 reusable tenant harness
+
+Use `createTenantTestFixture({ protectedTables: [...] })` from
+`test/support/tenant/database-fixture.ts` in a suite's `beforeAll`; always await
+`fixture.dispose()` in `afterAll`. There are no separate credential fields in the fixture API;
+never log fixture/pool objects or raw driver errors.
+The configured local/CI connection is maintenance-only; all migrated/seeded data
+lives in the generated disposable database. Existing CI credentials already have
+the database/role creation privileges required; CI configuration is unchanged.
+
+Call `baseTenantFixtures()` once for `tenantA.churchId`,
+`tenantB.churchId`, `userA.userId` and `userB.userId`.
+Use `seedTenantFixtures(fixture.fixturePool, base, { memberships: true })`
+in `beforeEach` when relationships are needed; otherwise omit the option.
+This resets tenant rows and base users inside the disposable database only.
+Module-specific preservation/setup queries remain in the calling suite.
+An optional `upgrade` supplies a prior migration tag and before/after callbacks;
+`migrateFixture` can also verify repeated full migration runs.
+
+Use `fixture.withTenant(context, tx => ...)` for production-boundary operations
+and `fixture.assertRestrictedRole()` to guard against privileged test mistakes.
+The helpers in `tenant-isolation.ts` accept explicit caller-owned queries,
+operations and expected rows:
+
+- `assertScopedResult` and `assertUnscopedResult`: permitted/denied reads or writes.
+- `assertRawRead`: broad raw query under A/B, followed by unscoped denial.
+- `assertScopeMismatch`: repository scope A with database scope B, plus an
+  independent unchanged-data assertion.
+- `assertRejectedWrite`: WITH CHECK failure plus unchanged-data assertion.
+- `assertCommitIsolation`: same backend PID, cleared context and no protected rows.
+- `assertRollbackIsolation`: explicit PostgreSQL ROLLBACK on the same borrowed
+  restricted connection. This low-level probe complements production-boundary
+  callback/SQL exception tests; it is not an alternative application context API.
+- `assertFailureIsolation`: real TenantDatabase rollback on application or SQL
+  errors, unchanged writes, no protected rows and no borrowed clients afterward.
+- `assertConcurrentIsolation`: two transactions must reach a bounded barrier
+  before querying; distinct backend PIDs and both reused connections are checked.
+
+Always release manually borrowed clients in `finally`; the shared helpers do so.
+Concurrent probes drain both transactions before surfacing failure. Cleanup
+self-tests check normal/repeated disposal and failures during seeding or grants;
+real privilege-negative tests reject superuser, BYPASSRLS, CREATEDB, CREATEROLE,
+table ownership and disabled FORCE RLS. Fast tests cover target/grant guards and
+sanitized role diagnostics without mocking PostgreSQL security.
+
+All 35 church and 40 membership cases remain, including duplicate creation/status
+races, FK/cascade behavior and ownership rewrites. Run `pnpm api:test` for fast
+tests and `pnpm api:test:db` for the full PostgreSQL dispatcher. New tenant modules
+must adopt this harness or equivalent reviewed coverage; failures block release.

@@ -1,3 +1,4 @@
+import { tenantHarnessIntegrationTests } from "./support/tenant/harness.integration.js";
 import { membershipIntegrationTests } from "./support/membership.integration.js";
 import { churchIntegrationTests } from "./support/church.integration.js";
 import { profileIntegrationTests } from "./support/profile.integration.js";
@@ -315,3 +316,5 @@ describe("Better Auth migrated PostgreSQL schema", () => {
     });
   });
 });
+
+tenantHarnessIntegrationTests();

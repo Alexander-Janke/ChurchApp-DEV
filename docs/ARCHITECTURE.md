@@ -1858,3 +1858,23 @@ TenantContext describes trusted scope, not user entitlement; a user selector is 
 authorization. There is no membership HTTP API, follower API, member directory,
 onboarding, administration, role/permission or Primary Owner functionality. Task 1.7
 remains blocked and no privileged capability or TOTP workaround is enabled.
+
+## Task 1.11: reusable tenant isolation test harness
+
+Task 1.11 maps to Phase 1E and changes test infrastructure only. The standard
+fixture lives in `services/api/test/support/tenant/`. It applies the reviewed
+migration journal to a generated disposable database, optionally checking an
+upgrade from a named prior migration. Future journal entries are picked up by
+the existing Drizzle migrator.
+
+`fixturePool/fixtureDb` are privileged setup and inspection connections;
+`runtimePool/runtimeDb` use an independently authenticated restricted LOGIN.
+`withTenant` and `concurrentTenantDatabase` invoke the production
+TenantContext/TenantDatabase transaction boundary. They do not grant entitlement.
+Base fixtures provide opaque Tenant A/B and User A/B identifiers; membership
+rows are opt-in fixture data, not product workflows.
+
+Church and membership suites retain their module-specific queries and assertions
+while sharing role validation, mismatch probes, pool cleanup and overlapping
+transaction checks. No production module, schema, migration, authentication
+behavior or CI configuration changed. Task 1.7 remains blocked.

@@ -2129,3 +2129,25 @@ Expected-state updates retain identity and reject stale transitions without expo
 foreign records. No service diagnostics contain SQL parameters, credentials, session
 data or private profiles. Global-user and church deletion cascade relationships;
 no standalone relationship deletion or administrative endpoint is exposed.
+
+## Task 1.11 tenant harness safeguards
+
+Protected RLS assertions must use the harness's restricted runtime connections,
+never its privileged fixture connections. The role validator requires a real
+LOGIN, no superuser/BYPASSRLS/CREATEDB/CREATEROLE privileges, no protected-table
+ownership or owner-role membership, and ENABLE/FORCE RLS on every declared
+protected table. Runtime grants are CONNECT, public-schema USAGE and CRUD on
+explicitly named tables only; there is no blanket, CREATE or TRUNCATE grant.
+
+Database and role names use matching random UUID suffixes. Cleanup revalidates
+the generated pair and drops only resources created by that fixture. It drains
+pools, attempts both database and role removal, and verifies their absence.
+Repeated/concurrent disposal shares one operation, including its failure result.
+Partial setup failures also run cleanup. Credentials stay in process memory;
+setup/cleanup diagnostics do not include raw driver errors or connection URLs.
+
+Every new tenant module must use this harness or equivalent reviewed tests.
+Positive and negative A/B operations, repository/RLS mismatch, missing context,
+WITH CHECK, rollback and concurrent pooled access must remain release-blocking
+checks. A GUC assertion alone is insufficient: tests must inspect protected rows.
+Fixture contexts do not replace future request authorization or permissions.

@@ -350,6 +350,10 @@ Membership state must always be scoped to one tenant.
 
 # 10. Phase 1E – Tenant Isolation Test Harness
 
+Task 1.11 — Reusable Tenant Isolation Test Harness maps to Phase 1E.
+It standardizes the existing church/membership PostgreSQL isolation fixtures and
+release-blocking tests without adding product behavior. Task 1.7 remains blocked.
+
 Extend the isolation tests introduced with the first tenant-owned tables into reusable helpers for all later tenant modules.
 
 Create common test fixtures:
