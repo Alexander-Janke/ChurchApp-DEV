@@ -2007,3 +2007,27 @@ the project still builds
 ```
 
 For this platform, functional correctness without authorization and tenant-isolation testing is incomplete implementation.
+
+## Task 1.8 profile regression coverage
+
+Fast profile tests exercise canonical usernames, Unicode names and limits,
+calendar dates, E.164 phones, structured address replacement, plain-text biography,
+HTTPS image references, nullable/omitted values, protected fields and explicit
+safe response mapping. Shared contract typecheck/tests/build preserve the
+framework-independent public package boundary.
+
+The canonical `pnpm api:test:db` suite includes profile tests on a uniquely named
+disposable PostgreSQL database. Coverage includes lazy profiles, authenticated
+self-only reads/writes, protected body/query IDs, Origin checks, concurrent
+username claims, independent-field concurrency, atomic image/profile rollback,
+database constraints/cascade, existing identities/credentials/sessions, absolute
+session expiry, and migration repeat behavior. All previous password and
+email-change attack regressions remain required. Migration expectations now
+include 0000_auth_foundation, 0001_email_change_workflow, and 0002_user_profile;
+repeat migration preserves auth, email-change and profile data.
+
+Pinned Better Auth schema generation must reproduce only its unchanged core
+schema. Application-owned email_change_request and user_profile are separately
+exported by the application schema index, never added to generator-owned auth.ts.
+TOTP remains blocked; these profile tests do not simulate verified 2FA or
+authorize privileged capabilities.

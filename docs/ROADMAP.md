@@ -268,6 +268,16 @@ Security tests must be part of CI.
 
 # 7. Phase 1B – User Profile
 
+Task 1.8 — User Profile Backend Foundation maps to Phase 1B. Its backend scope
+is authenticated self-profile only, using an application-owned one-to-one
+user_profile table and the canonical Better Auth user.image reference.
+Public/member directories, visibility controls and client UI remain deferred.
+
+Task 1.7 — TOTP Two-Factor Authentication
+Status: BLOCKED — upstream Better Auth TOTP replay issue #10387.
+This blocker remains independent of ordinary self-profile work. No privileged
+capability may bypass the TOTP/assurance prerequisites in Phase 1L.
+
 Implement the platform user profile.
 
 Initial fields:

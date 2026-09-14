@@ -620,6 +620,7 @@ export function emailChangeIntegrationTests() {
       const migrationNames = [
         "0000_auth_foundation",
         "0001_email_change_workflow",
+        "0002_user_profile",
       ];
       const expectedHashes = migrationNames.map((name) =>
         createHash("sha256")

@@ -15,6 +15,13 @@
       "when": 1789363936315,
       "tag": "0001_email_change_workflow",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789366363768,
+      "tag": "0002_user_profile",
+      "breakpoints": true
     }
   ]
 }

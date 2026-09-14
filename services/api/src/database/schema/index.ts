@@ -1,3 +1,4 @@
 // Canonical schema entry point. Auth identities are platform-global.
 export * from "./auth.js";
 export * from "./email-change.js";
+export * from "./user-profile.js";

@@ -1,3 +1,4 @@
+import { AuthSessionReader } from "./auth-session-reader.js";
 import { EmailChangeService } from "./email-change.service.js";
 import { Module } from "@nestjs/common";
 import { AuthModule as BetterAuthModule } from "@thallesp/nestjs-better-auth";
@@ -7,6 +8,8 @@ import { createBetterAuth, getBetterAuthUrl } from "./auth.config.js";
 import { AuthEmailModule, AuthEmailSender } from "./auth-email.js";
 
 @Module({
+  providers: [AuthSessionReader],
+  exports: [AuthSessionReader],
   imports: [
     BetterAuthModule.forRootAsync({
       imports: [DatabaseModule, AuthEmailModule],

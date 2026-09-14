@@ -2048,3 +2048,32 @@ Before production launch, the project must perform a dedicated security and priv
 - deletion and retention
 
 A successful functional test suite alone does not mean the application is secure.
+
+## Task 1.8 self-profile boundary
+
+All extended profile fields, including DOB, phone, address and biography, are
+self-only. Identity comes from the AuthModule-owned session reader with Task 1.4
+absolute expiry enforcement; no body/query/route ID selects a user. Missing,
+revoked or expired sessions receive 401. PATCH additionally requires the exact
+configured authentication origin. No bespoke limiter, Redis, or weaker auth
+policy is introduced. Responses use Cache-Control: no-store.
+
+Unknown/protected top-level and nested address properties, empty updates, and
+invalid values receive sanitized 400 responses. Username conflicts return 409;
+database/session resolution failures fail closed with generic 503 responses.
+No profile bodies, private field values, cookies, credentials or raw database
+errors are logged. Field mapping excludes internal auth/security data.
+Email and emailVerified remain exclusive to the established authentication
+workflows; password/account records are never written by profile operations.
+The auth compatibility name cannot be changed through profile PATCH.
+
+The one-to-one profile and username uniqueness are database-enforced. Atomic
+profile/image writes prevent partial updates on conflict. The initiating and
+other sessions remain intact, retaining their original absolute-lifetime origin.
+The API does not fetch image URLs; future renderers must respect privacy and
+safe image loading, and must treat biography as plain text rather than HTML.
+Public visibility, directories and privacy controls remain separate future work.
+
+Task 1.7 remains blocked by Better Auth issue #10387 (the reproduced TOTP replay
+behavior in 1.7.4). No two-factor plugin, schema, migration, replay workaround,
+fake assurance, or privileged bypass is added by Task 1.8.

@@ -1711,3 +1711,51 @@ Codex must:
 2. identify alternatives
 3. document tradeoffs
 4. wait for an explicit project decision before proceeding
+
+## Task 1.8: User Profile Backend Foundation
+
+Task 1.8 implements Phase 1B as a global authenticated self-profile API:
+`GET /api/v1/profile/me` and `PATCH /api/v1/profile/me`. There are no arbitrary-user
+routes, directory, tenant relationships, administration, or client UI.
+
+Better Auth's generated `user` remains the authentication identity. The separate
+application-owned `user_profile` has a cascading primary-key/FK `user_id`, nullable
+product fields, and a unique canonical username. Migration `0002_user_profile`
+does not modify Better Auth's core schema. GET never creates a row; the first
+successful PATCH creates one without synthesizing values from `user.name`.
+Structured first/last names belong only to the profile; `user.name` retains its
+auth/signup compatibility meaning with no synchronization. `user.image` remains
+the only picture reference, not binary storage.
+
+The framework-independent contracts are `SelfProfile`, `ProfileAddress`, and
+`UpdateSelfProfileRequest`, exported through `@church-platform/contracts`.
+Responses explicitly map identity ID/email/verification/image plus username,
+structured names, date of birth, phone, address and biography. Timestamps are
+unambiguous: `identityCreatedAt`, `profileCreatedAt`, `profileUpdatedAt` (the last
+two are null before a profile exists). Dates of birth use YYYY-MM-DD; timestamps
+use ISO instants. No internal auth rows or credentials are returned.
+
+PATCH supports username, firstName, lastName, dateOfBirth, phoneNumber, address,
+biography and image. Omitted fields remain unchanged; null clears a field.
+An address object replaces the entire address, with omitted subfields cleared;
+address=null clears all columns. An all-null address is returned as null.
+Empty patches and unknown/protected fields are rejected. Username is lowercase
+ASCII, 3–30 characters, with letters/digits and interior dot/underscore/hyphen.
+Names are trimmed Unicode, nonempty when supplied, at most 100 code points.
+Date of birth is a real nonfuture calendar date (UTC today boundary).
+Phone is canonical E.164 syntax; country code is uppercase two-letter syntax,
+without external country/address validation. Address limits are 200/200/32/120/120/2.
+Biography preserves plain text/line breaks, up to 2000 Unicode code points.
+Image is null or an HTTPS URL without embedded credentials, limited to 2048 code
+points; the backend does not fetch it. Uploads and storage integration are deferred.
+
+AuthModule exports a small application-owned session reader using its configured
+Better Auth instance, so absolute expiry remains enforced and rolling cookie
+headers are forwarded. Profile controllers stay thin; module-owned repositories
+perform explicit user-ID-scoped queries and field mapping. PATCH locks the
+identity and transacts profile upsert plus optional image update. Independent
+field patches are preserved; same-field concurrent writes use last-commit-wins.
+The database unique username index decides concurrent claims; conflicts return
+409 without identifying the other user. Profile mutation does not touch accounts
+or session rows; ordinary session resolution may still perform its configured
+rolling refresh without resetting the absolute lifetime.
