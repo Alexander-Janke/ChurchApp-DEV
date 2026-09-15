@@ -1,6 +1,8 @@
 import { GoogleCompletion } from "./google-completion.js";
 import { auditedPasswordOperations } from "./auth-password-audit.js";
 import { auditedSessionRevocation } from "./auth-revocation-audit.js";
+import { AuthenticationFailureClassifier } from "./auth-failure-classifier.js";
+import { AuthSecurityEventService } from "./auth-security-event.service.js";
 import { GooglePreAuth, googlePreAuthPlugin } from "./google-pre-auth.js";
 import {
   googleCredentials,
@@ -12,6 +14,7 @@ import { TwoFactorEnrollment } from "./two-factor-enrollment.js";
 import type { DatabaseService } from "../database/database.service.js";
 import { invalidateUserAssurance } from "./session-assurance.service.js";
 import { preparationTwoFactor } from "./auth-two-factor.js";
+import { RecoveryCodeRedemption } from "./recovery-code-redemption.js";
 import { emailChangePlugin } from "./email-change.plugin.js";
 import type { EmailChangeService } from "./email-change.service.js";
 import { betterAuth } from "better-auth";
@@ -94,7 +97,14 @@ export function createBetterAuth(
     );
   }
   const authTransaction = new AuthTransaction(database, transaction);
+  const failureEvents = new AuthSecurityEventService();
+  const failureTransaction =
+    transaction ?? ((work) => database.transaction(work));
+  const failureClassifier = new AuthenticationFailureClassifier((event) =>
+    failureEvents.recordFailure({ transaction: failureTransaction }, event),
+  );
   const enrollment = new TwoFactorEnrollment(authTransaction);
+  const recoveryRedemption = new RecoveryCodeRedemption(authTransaction);
   const googleBridge = new GooglePreAuth(authTransaction);
   const google = googleCredentials(
     process.env,
@@ -131,8 +141,14 @@ export function createBetterAuth(
       preparationTwoFactor(
         enrollment,
         getBetterAuthUrl(),
-        new FactorAssurance(authTransaction),
-        new GoogleCompletion(authTransaction, googleBridge),
+        new FactorAssurance(authTransaction, undefined, recoveryRedemption),
+        new GoogleCompletion(
+          authTransaction,
+          googleBridge,
+          failureClassifier,
+          recoveryRedemption,
+        ),
+        recoveryRedemption,
       ),
     ],
     basePath: BETTER_AUTH_BASE_PATH,
@@ -253,7 +269,11 @@ export function createBetterAuth(
     },
     hooks: {
       before: createAuthPolicy(emailSender, sessionPolicy),
-      after: createSessionResponsePolicy(sessionPolicy, emailSender),
+      after: createSessionResponsePolicy(
+        sessionPolicy,
+        emailSender,
+        failureClassifier,
+      ),
     },
     logger: createAuthLogger(),
   });

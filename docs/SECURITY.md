@@ -2587,12 +2587,12 @@ writer is proven with real native recovery proof and rollback/concurrency tests.
 Google completion must incorporate it in the same transaction as challenge/code
 consumption and session issuance. It is not implemented by this foundation task.
 
-ADR 0003 leaves repeated/suspicious classification undefined. No incident threshold
-or automatic emission is invented. A future reviewed classifier may invoke the
-separate failure-persistence transaction after a conclusive failed attempt; failure
-audit cannot be written only into a transaction that will roll back. Native attempt
-protection stays unchanged. This deferral does not declare full Phase 1 security-event
-coverage complete and remains a prerequisite for applicable production activation.
+At the Task 1.21b-0 foundation boundary, ADR 0003 left repeated/suspicious
+classification undefined, so no incident threshold or automatic emission was
+invented there. Task 1.21d now defines the reviewed conclusive-failure policy and
+invokes the separate failure-persistence transaction only after the failed attempt
+is conclusive; failure audit cannot be written only into a transaction that will roll
+back. Native attempt protection stays unchanged.
 
 Google authentication remains production-disabled. Its native 1.7.4 2FA bypass is
 NOT accepted. The only accepted exception remains `better-auth/better-auth#10387`:
@@ -2623,7 +2623,8 @@ retained. The bounded shared five-attempt/minute credential limiter is always ac
 native production source limits additionally allow five requests per route/minute.
 Memory limits are single-instance and restart-resettable; persistent native attempt
 budgets are not. Counters are not an invented suspicious-failure classification.
-Automatic `authentication_failure` classification/emission remains separately reviewed.
+Task 1.21d separately classifies conclusive proof failures with its reviewed
+`authentication_failure` threshold and suppression policy.
 
 Successful recovery writes `auth_security_event.recovery_code_used`, purpose
 `authentication`, with historical identity/session identifiers and no code. Ordinary
@@ -2668,6 +2669,64 @@ The fixed `GOOGLE_AUTHENTICATION_ENABLED = false` gate remains in place. This ke
 the native 1.7.4 Google/TOTP bypass unaccepted and unreachable while the public
 activation matrix is reviewed. The only accepted exception is still
 `better-auth/better-auth#10387`; it does not authorize Google 2FA bypass, challenge
-replay or recovery-code replay. The undefined repeated/suspicious authentication
-failure threshold from ADR 0003 remains a separate prerequisite, so production
-Google authentication is not activated by this task.
+replay or recovery-code replay. Task 1.21d defines the repeated/suspicious
+authentication-failure threshold; the complete public activation matrix remains a
+separate prerequisite, so production Google authentication is not activated by this
+task.
+
+## Task 1.21d — authentication failure classification
+
+Only conclusive proof failures are classified: wrong password, wrong TOTP, wrong
+recovery code and wrong Google factor proof. The classifier keys a normalized target
+with its flow (`password`, `totp`, `recovery` or `google`) and requires five failures
+in a rolling ten-minute window (`age < 10 minutes`; equality expires). It emits one
+existing `authentication_failure` event with `{ method, category: "repeated" }`,
+then suppresses another event for that key for ten minutes. Successful authentication
+resets the transient counter.
+
+Malformed or missing fields, Origin/CSRF failures, unknown routes, rate limits,
+storage/service errors, lockout responses and other non-proof failures do not count.
+Counters are isolated by user and flow, bounded to 10,000 in-memory keys, pruned
+when expired, and fail closed at capacity. Restart clears only this transient
+classification state. A concurrent threshold crossing produces at most one event.
+
+The durable write runs after the authentication failure is conclusive and in a
+separate transaction. Its failure cannot turn the failed authentication into success.
+Only existing validated method/category metadata and historical subject identifiers
+are persisted; no normalized target, IP, user agent, device, geolocation, password,
+factor material, provider token or raw request is stored. No schema or migration is
+needed, and native attempt counters, lockout and rate limiting are unchanged.
+
+This policy is separate from the accepted `better-auth/better-auth#10387` limitation.
+That exception still concerns only reuse of a still-valid TOTP across independent
+challenges; it does not accept Google TOTP bypass, challenge replay, recovery-code
+replay or duplicate sessions. Google production authentication remains disabled until
+the full public activation review is complete.
+
+## Task 1.21e — atomic recovery-code redemption
+
+The application now closes a pre-existing Better Auth 1.7.4 Drizzle/PostgreSQL
+race in native backup-code consumption. The adapter's compare-and-swap selects by
+the old encrypted value and updates by a subquery; separate connections could both
+observe that value before either update committed. This was reproduced in a
+fixture-only probe and is not accepted behavior.
+
+`RecoveryCodeRedemption` is the application-owned boundary for every production
+recovery consumer. It locks the user and canonical `two_factor` row in a stable
+order, re-reads the challenge/factor after waiting, and then invokes Better Auth's
+canonical encrypted verifier on the same `AuthTransaction` connection. Ordinary
+recovery login, Google recovery completion and recovery-based elevation/step-up
+therefore have one global winner across processes and database connections;
+regeneration, disable and deletion serialize with the same row locks. The ordinary
+`/two-factor/verify-backup-code` endpoint is wrapped so no mounted production route
+can use the unsafe native mutation without the lock.
+
+For success, encrypted-code removal, the associated session/assurance mutation and
+the required `auth_security_event.recovery_code_used` insert commit atomically.
+Audit, session or associated-operation failure rolls back the code and event.
+Conclusive invalid proof may commit only native failure accounting; it never emits
+a success event or creates a session. No recovery code, token or decrypted secret is
+stored or logged, and no schema/migration change was needed. Deterministic
+concurrency, lifecycle-race and failure-injection tests prove one-use behavior.
+The separate accepted `better-auth/better-auth#10387` limitation remains the only
+authentication exception; it does not permit recovery replay or duplicate sessions.

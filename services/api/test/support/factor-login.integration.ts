@@ -263,6 +263,14 @@ export function factorLoginIntegrationTests() {
         )
       ).rows;
     }
+    async function authenticationFailureEvents(method?: string) {
+      return (
+        await pool.query(
+          "SELECT event_type,metadata,actor_user_id,subject_user_id,outcome FROM auth_security_event WHERE subject_user_id=$1 AND event_type='authentication_failure' AND ($2::text IS NULL OR metadata->>'method'=$2)",
+          [id, method ?? null],
+        )
+      ).rows;
+    }
     async function rejectAudit(work: () => Promise<void>) {
       await pool.query(
         "CREATE FUNCTION reject_auth_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'private-audit-fixture'; END $$; CREATE TRIGGER reject_auth_audit BEFORE INSERT ON auth_security_event FOR EACH ROW EXECUTE FUNCTION reject_auth_audit()",
@@ -417,6 +425,57 @@ export function factorLoginIntegrationTests() {
       ).toBe(200);
       expect(await auditEvents("recovery_code_used")).toHaveLength(1);
     });
+    it("recovery login audit failure rolls back code and session, allowing safe retry", async () => {
+      const material = await ready();
+      const signInChallenge = await challenge();
+      await rejectAudit(async () => {
+        const response = await post(
+          "/two-factor/verify-backup-code",
+          { code: material.backupCodes[0] },
+          signInChallenge,
+        );
+        expect(response.status).toBe(503);
+        expect(await sessions()).toHaveLength(0);
+        expect(await auditEvents("recovery_code_used")).toHaveLength(0);
+      });
+      const retry = await post(
+        "/two-factor/verify-backup-code",
+        { code: material.backupCodes[0] },
+        signInChallenge,
+      );
+      expect(retry.status).toBe(200);
+      expect(await sessions()).toHaveLength(1);
+      expect(await auditEvents("recovery_code_used")).toHaveLength(1);
+    });
+    it("recovery login session failure rolls back code and audit, allowing safe retry", async () => {
+      const material = await ready();
+      const signInChallenge = await challenge();
+      await pool.query(
+        "CREATE FUNCTION reject_recovery_session() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'private-session-fixture'; END $$; CREATE TRIGGER reject_recovery_session BEFORE INSERT ON session FOR EACH ROW EXECUTE FUNCTION reject_recovery_session()",
+      );
+      try {
+        const response = await post(
+          "/two-factor/verify-backup-code",
+          { code: material.backupCodes[0] },
+          signInChallenge,
+        );
+        expect(response.status).toBe(503);
+      } finally {
+        await pool.query(
+          "DROP TRIGGER reject_recovery_session ON session; DROP FUNCTION reject_recovery_session()",
+        );
+      }
+      expect(await sessions()).toHaveLength(0);
+      expect(await auditEvents("recovery_code_used")).toHaveLength(0);
+      const retry = await post(
+        "/two-factor/verify-backup-code",
+        { code: material.backupCodes[0] },
+        signInChallenge,
+      );
+      expect(retry.status).toBe(200);
+      expect(await sessions()).toHaveLength(1);
+      expect(await auditEvents("recovery_code_used")).toHaveLength(1);
+    });
     it("concurrent native recovery proofs produce one success and one durable success event", async () => {
       const material = await activate();
       const outcomes = await Promise.all(
@@ -450,6 +509,78 @@ export function factorLoginIntegrationTests() {
       expect(await auditEvents("recovery_code_used")).toHaveLength(0);
       expect(await auditEvents("recovery_codes_regenerated")).toHaveLength(0);
     });
+    it("classifies five conclusive credential failures once and ignores malformed input", async () => {
+      for (let attempt = 0; attempt < 5; attempt++)
+        expect(
+          (
+            await post("/sign-in/email", {
+              email,
+              password: "wrong factor fixture password",
+            })
+          ).status,
+        ).toBe(401);
+      expect(await authenticationFailureEvents("password")).toHaveLength(1);
+      expect(
+        (
+          await post("/sign-in/email", {
+            email,
+            password: 12345,
+          })
+        ).status,
+      ).toBe(400);
+      expect(await authenticationFailureEvents("password")).toHaveLength(1);
+    });
+    it("concurrent conclusive credential failures emit one durable event", async () => {
+      const responses = await Promise.all(
+        Array.from({ length: 5 }, () =>
+          post("/sign-in/email", {
+            email,
+            password: "wrong factor fixture password",
+          }),
+        ),
+      );
+      expect(responses.every((response) => response.status === 401)).toBe(true);
+      expect(await authenticationFailureEvents("password")).toHaveLength(1);
+    });
+    it.each(["totp", "recovery"])(
+      "classifies five conclusive %s failures once without weakening native lock policy",
+      async (method) => {
+        await ready();
+        const challengeCookie = await challenge();
+        const valid = method === "totp" ? await code() : "00000-00000";
+        const invalid =
+          method === "totp"
+            ? valid === "000000"
+              ? "111111"
+              : "000000"
+            : "zzzzz-99999";
+        for (let attempt = 0; attempt < 5; attempt++)
+          expect(
+            (
+              await post(
+                method === "totp"
+                  ? "/two-factor/verify-totp"
+                  : "/two-factor/verify-backup-code",
+                { code: invalid },
+                challengeCookie,
+              )
+            ).status,
+          ).toBe(401);
+        expect(await authenticationFailureEvents(method)).toHaveLength(1);
+        expect(
+          (
+            await post(
+              method === "totp"
+                ? "/two-factor/verify-totp"
+                : "/two-factor/verify-backup-code",
+              { code: null },
+              challengeCookie,
+            )
+          ).status,
+        ).toBe(400);
+        expect(await authenticationFailureEvents(method)).toHaveLength(1);
+      },
+    );
     it("password creates only a challenge; native TOTP then creates one ordinary session without assurance", async () => {
       await ready();
       const c = await challenge();
@@ -539,20 +670,23 @@ export function factorLoginIntegrationTests() {
           .rows[0].n,
       ).toBe(0);
     });
-    it("recovery login consumes once; sequential and concurrent replay cannot create extra sessions", async () => {
+    it("recovery login consumes once across ten concurrent challenges", async () => {
       const m = await ready();
-      const a = await challenge(),
-        b = await challenge();
+      const challenges = await Promise.all(
+        Array.from({ length: 10 }, () => challenge()),
+      );
       const results = await Promise.all(
-        [a, b].map((c) =>
+        challenges.map((c) =>
           post("/two-factor/verify-backup-code", { code: m.backupCodes[0] }, c),
         ),
       );
       expect(results.filter((r) => r.status === 200)).toHaveLength(1);
-      expect(results.filter((r) => [401, 409].includes(r.status))).toHaveLength(
-        1,
-      );
+      expect(results.filter((r) => r.status !== 200)).toHaveLength(9);
+      expect(
+        results.every((r) => [200, 401, 409, 429].includes(r.status)),
+      ).toBe(true);
       expect(await sessions()).toHaveLength(1);
+      expect(await auditEvents("recovery_code_used")).toHaveLength(1);
       expect(
         (
           await post(
@@ -565,7 +699,83 @@ export function factorLoginIntegrationTests() {
       expect(await sessions()).toHaveLength(1);
       const success = results.find((r) => r.status === 200)!;
       expect((await current(cookies(success))).user.id).toBe(id);
-      noLeaks(await success.json(), m.backupCodes);
+      const body = await success.json();
+      expect("token" in body).toBe(false);
+      noLeaks(body, m.backupCodes);
+    });
+    it("ordinary login and recovery assurance race for one global redemption", async () => {
+      const m = await activate();
+      const signInChallenge = await challenge();
+      const [login, assurance] = await Promise.all([
+        post(
+          "/two-factor/verify-backup-code",
+          { code: m.backupCodes[0] },
+          signInChallenge,
+        ),
+        complete("recovery", "elevation", cookie, m.backupCodes[0]),
+      ]);
+      expect(
+        [login.status === 200, assurance.status === 200].filter(Boolean),
+      ).toHaveLength(1);
+      expect(await auditEvents("recovery_code_used")).toHaveLength(1);
+      expect(await rows()).toHaveLength(1);
+      expect(await sessions()).toHaveLength(login.status === 200 ? 2 : 1);
+    });
+    it("recovery redemption and regeneration serialize without resurrecting old codes", async () => {
+      const material = await activate();
+      const signInChallenge = await challenge();
+      const [loginResult, regeneration] = await Promise.all([
+        post(
+          "/two-factor/verify-backup-code",
+          { code: material.backupCodes[0] },
+          signInChallenge,
+        ),
+        post("/two-factor/generate-backup-codes", { password }, cookie),
+      ]);
+      expect(regeneration.status).toBe(200);
+      expect([200, 401, 409, 429]).toContain(loginResult.status);
+      const encrypted = (await rows())[0]!.backup_codes;
+      const current = JSON.parse(
+        await symmetricDecrypt({ key: secret, data: encrypted }),
+      ) as string[];
+      expect(current).not.toContain(material.backupCodes[0]);
+      expect(await auditEvents("recovery_code_used")).toHaveLength(
+        loginResult.status === 200 ? 1 : 0,
+      );
+    });
+    it("recovery redemption and factor disable serialize without resurrecting the factor", async () => {
+      const material = await activate();
+      const signInChallenge = await challenge();
+      const [loginResult, disabled] = await Promise.all([
+        post(
+          "/two-factor/verify-backup-code",
+          { code: material.backupCodes[0] },
+          signInChallenge,
+        ),
+        post("/two-factor/disable", { password }, cookie),
+      ]);
+      expect(disabled.status).toBe(200);
+      expect([200, 401, 409, 429]).toContain(loginResult.status);
+      expect(await rows()).toHaveLength(0);
+      expect(await auditEvents("two_factor_disabled")).toHaveLength(1);
+      expect(await auditEvents("recovery_code_used")).toHaveLength(
+        loginResult.status === 200 ? 1 : 0,
+      );
+    });
+    it("user deletion racing recovery redemption leaves no usable recovery state", async () => {
+      const material = await activate();
+      const signInChallenge = await challenge();
+      const [loginResult] = await Promise.all([
+        post(
+          "/two-factor/verify-backup-code",
+          { code: material.backupCodes[0] },
+          signInChallenge,
+        ),
+        pool.query('DELETE FROM "user" WHERE id=$1', [id]),
+      ]);
+      expect([200, 401, 409, 429]).toContain(loginResult.status);
+      expect(await sessions()).toHaveLength(0);
+      expect(await rows()).toHaveLength(0);
     });
     it("recovery code cannot cross user boundaries", async () => {
       const m = await ready();

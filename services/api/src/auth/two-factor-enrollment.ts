@@ -60,7 +60,8 @@ export class TwoFactorEnrollment {
         const factors = await tx
           .select()
           .from(factor)
-          .where(eq(factor.userId, identity.id));
+          .where(eq(factor.userId, identity.id))
+          .for("update");
         if (factors.length > 1) throw staleEnrollment();
         const active = factors[0];
         if (
@@ -129,7 +130,8 @@ export class TwoFactorEnrollment {
           const [generated] = await tx
             .select()
             .from(factor)
-            .where(eq(factor.userId, identity.id));
+            .where(eq(factor.userId, identity.id))
+            .for("update");
           if (!generated || generated.verified !== false)
             throw staleEnrollment();
           const id = newEnrollmentId();
@@ -153,7 +155,8 @@ export class TwoFactorEnrollment {
           const [completed] = await tx
             .select()
             .from(factor)
-            .where(eq(factor.userId, identity.id));
+            .where(eq(factor.userId, identity.id))
+            .for("update");
           if (
             !completed ||
             completed.verified !== true ||

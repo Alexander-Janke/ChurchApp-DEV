@@ -32,7 +32,15 @@ import { AuthService } from "@thallesp/nestjs-better-auth";
 import { AuthModule } from "../src/auth/auth.module.js";
 import type { createBetterAuth } from "../src/auth/auth.config.js";
 import { getDatabaseUrl } from "../src/database/database.config.js";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { DATABASE_POOL } from "../src/database/database.constants.js";
 import { DatabaseModule } from "../src/database/database.module.js";
 import { DatabaseService } from "../src/database/database.service.js";
@@ -98,6 +106,14 @@ describe("real PostgreSQL foundation", () => {
     expect(pool.idleCount).toBe(pool.totalCount);
     expect(pool.waitingCount).toBe(0);
   });
+});
+
+// Every integration suite in this file shares one Vitest worker.  A fake Date
+// left behind by a time-boundary test can otherwise skew application-side
+// session evaluation against PostgreSQL's real clock in a later suite.  Keep
+// this file-level cleanup as the final timer boundary for every nested test.
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 authSecurityEventIntegrationTests();

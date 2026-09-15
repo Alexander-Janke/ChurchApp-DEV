@@ -406,7 +406,7 @@ export function churchAdminIntegrationTests() {
           );
         if (kind === "absolute")
           await f.fixturePool.query(
-            "update session set created_at=now()-interval '30 days' where id=$1",
+            "update session set created_at=now()-interval '31 days' where id=$1",
             [sessionId],
           );
         await both(401, kind === "missing" ? "" : cookie);

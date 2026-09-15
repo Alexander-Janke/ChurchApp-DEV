@@ -255,6 +255,14 @@ export function googleCompletionIntegrationTests() {
         )
       ).rows[0].n;
     }
+    async function failureEventCount(method = "totp") {
+      return (
+        await pool.query(
+          "SELECT count(*)::int n FROM auth_security_event WHERE event_type='authentication_failure' AND subject_user_id=$1 AND metadata->>'method'=$2",
+          [userId, method],
+        )
+      ).rows[0].n;
+    }
     async function storedCodes() {
       return (
         await pool.query(
@@ -356,6 +364,24 @@ export function googleCompletionIntegrationTests() {
       ).toBe(401);
       expect((await counts()).sessions).toBe(1);
       expect(await eventCount()).toBe(1);
+    });
+    it("classifies five conclusive Google factor failures once without storing provider data", async () => {
+      const raw = await challenge();
+      const valid = await totp();
+      const invalid = valid === "000000" ? "111111" : "000000";
+      for (let attempt = 0; attempt < 5; attempt++)
+        expect((await complete(raw, invalid)).status).toBe(401);
+      expect(await failureEventCount()).toBe(1);
+      const rows = await pool.query(
+        "SELECT metadata FROM auth_security_event WHERE event_type='authentication_failure' AND subject_user_id=$1",
+        [userId],
+      );
+      expect(rows.rows[0].metadata).toEqual({
+        method: "totp",
+        category: "repeated",
+      });
+      expect(JSON.stringify(rows.rows)).not.toContain(providerId);
+      expect(JSON.stringify(rows.rows)).not.toContain(providerEmail);
     });
     it.each(["totp", "recovery"])(
       "session insertion failure rolls back %s proof, challenge and event",

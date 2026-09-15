@@ -2,10 +2,11 @@ import type { GoogleCompletion } from "./google-completion.js";
 import { factorBody } from "./factor-verification-policy.js";
 import type { FactorAssurance } from "./factor-assurance.js";
 import { twoFactor } from "better-auth/plugins";
-import { APIError, createAuthEndpoint } from "better-auth/api";
+import { APIError, createAuthEndpoint, isAPIError } from "better-auth/api";
 import type { TwoFactorEnrollment } from "./two-factor-enrollment.js";
 import { enrollmentInput } from "./two-factor-enrollment-policy.js";
 import type { GenericEndpointContext } from "better-auth";
+import type { RecoveryCodeRedemption } from "./recovery-code-redemption.js";
 
 // KNOWN UPSTREAM LIMITATION — better-auth/better-auth#10387:
 // Native cross-challenge TOTP replay is temporarily accepted, not fixed here.
@@ -17,6 +18,7 @@ export function preparationTwoFactor(
   baseURL?: string,
   assurance?: FactorAssurance,
   googleCompletion?: GoogleCompletion,
+  recoveryRedemption?: RecoveryCodeRedemption,
 ) {
   const native = twoFactor({
     issuer: TWO_FACTOR_ISSUER,
@@ -95,6 +97,35 @@ export function preparationTwoFactor(
       },
     );
   }
+  function verifyBackupCode() {
+    if (!recoveryRedemption) return native.endpoints.verifyBackupCode;
+    return createAuthEndpoint(
+      "/two-factor/verify-backup-code",
+      native.endpoints.verifyBackupCode.options,
+      async (ctx) => {
+        let result;
+        try {
+          result = await recoveryRedemption.signIn(
+            ctx,
+            native.endpoints.verifyBackupCode,
+          );
+        } catch (error) {
+          if (isAPIError(error)) throw error;
+          throw new APIError("SERVICE_UNAVAILABLE", {
+            message: "Recovery authentication unavailable",
+          });
+        }
+        // Preserve Better Auth's canonical cookie/session transport. The
+        // response middleware removes the bearer token from the JSON body.
+        result.headers.forEach((value, name) => {
+          if (name !== "set-cookie") ctx.setHeader(name, value);
+        });
+        for (const cookie of result.headers.getSetCookie())
+          ctx.responseHeaders.append("set-cookie", cookie);
+        return result.response;
+      },
+    );
+  }
   // Retain canonical schema, credential challenge hooks and native rate limits.
   // Explicitly omit OTP, subsequent secret/code retrieval and server generators.
   return {
@@ -126,7 +157,7 @@ export function preparationTwoFactor(
         "/two-factor/generate-backup-codes",
       ),
       verifyTOTP: native.endpoints.verifyTOTP,
-      verifyBackupCode: native.endpoints.verifyBackupCode,
+      verifyBackupCode: verifyBackupCode(),
     },
   };
 }

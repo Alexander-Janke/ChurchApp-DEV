@@ -4,6 +4,11 @@ import { deleteSessionCookie } from "better-auth/cookies";
 import type { AuthSessionPolicy } from "./auth-session-policy.js";
 import type { AuthEmailSender } from "./auth-email.js";
 import { completePasswordChange } from "./auth-password-policy.js";
+import {
+  AuthenticationFailureClassifier,
+  credentialFailureTarget,
+  subjectFailureTarget,
+} from "./auth-failure-classifier.js";
 
 function unavailable(): APIError {
   return new APIError("SERVICE_UNAVAILABLE", {
@@ -82,12 +87,17 @@ function withoutToken<T extends { token: string }>(
 export function createSessionResponsePolicy(
   policy: AuthSessionPolicy,
   emailSender: AuthEmailSender,
+  failureClassifier?: AuthenticationFailureClassifier,
 ) {
   return createAuthMiddleware(async (ctx) => {
     if (ctx.path.startsWith("/social/google/verify-"))
       ctx.setHeader("cache-control", "no-store");
     const returned = ctx.context.returned;
-    if (isAPIError(returned)) return;
+    if (isAPIError(returned)) {
+      await classifyAuthenticationFailure(ctx, returned, failureClassifier);
+      return;
+    }
+    await resetAuthenticationFailures(ctx, failureClassifier, returned);
     await completePasswordChange(ctx, emailSender);
     // No HTTP cache or ordinary JSON consumer may become session authority.
     ctx.setHeader("cache-control", "no-store");
@@ -146,4 +156,124 @@ export function createSessionResponsePolicy(
       throw unavailable();
     }
   });
+}
+
+function returnedUserId(returned: unknown): string | null {
+  if (
+    !returned ||
+    typeof returned !== "object" ||
+    !("user" in returned) ||
+    !returned.user ||
+    typeof returned.user !== "object" ||
+    !("id" in returned.user) ||
+    typeof returned.user.id !== "string"
+  )
+    return null;
+  return returned.user.id;
+}
+
+async function twoFactorUserId(
+  ctx: GenericEndpointContext,
+): Promise<string | null> {
+  try {
+    const cookie = ctx.context.createAuthCookie("two_factor");
+    const key = await ctx.getSignedCookie(cookie.name, ctx.context.secret);
+    if (!key) return null;
+    const challenge =
+      await ctx.context.internalAdapter.findVerificationValue(key);
+    if (!challenge) return null;
+    const user = await ctx.context.internalAdapter.findUserById(
+      challenge.value,
+    );
+    return user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function classifyAuthenticationFailure(
+  ctx: GenericEndpointContext,
+  error: APIError,
+  classifier?: AuthenticationFailureClassifier,
+): Promise<void> {
+  if (!classifier) return;
+  try {
+    const code = error.body?.code;
+    if (ctx.path === "/sign-in/email" && code === "INVALID_EMAIL_OR_PASSWORD") {
+      const body = ctx.body as Record<string, unknown> | undefined;
+      const target = credentialFailureTarget(body?.email);
+      if (!target || typeof body?.password !== "string") return;
+      let subjectUserId: string | null = null;
+      try {
+        const record = await ctx.context.internalAdapter.findUserByEmail(
+          (body!.email as string).trim().toLowerCase(),
+        );
+        subjectUserId = record?.user.id ?? null;
+      } catch {
+        // A storage error is not a conclusive proof failure.
+        return;
+      }
+      await classifier.observe({
+        flow: "password",
+        method: "password",
+        target: subjectUserId ? subjectFailureTarget(subjectUserId) : target,
+        subjectUserId,
+      });
+      return;
+    }
+
+    const factor =
+      ctx.path === "/two-factor/verify-totp"
+        ? ({ flow: "totp", method: "totp", code: "INVALID_CODE" } as const)
+        : ctx.path === "/two-factor/verify-backup-code"
+          ? ({
+              flow: "recovery",
+              method: "recovery",
+              code: "INVALID_BACKUP_CODE",
+            } as const)
+          : null;
+    if (!factor || code !== factor.code) return;
+    const subjectUserId = await twoFactorUserId(ctx);
+    if (!subjectUserId) return;
+    await classifier.observe({
+      flow: factor.flow,
+      method: factor.method,
+      target: subjectFailureTarget(subjectUserId),
+      subjectUserId,
+    });
+  } catch {
+    // Failure classification is post-failure observability and never changes
+    // the sanitized authentication response.
+  }
+}
+
+async function resetAuthenticationFailures(
+  ctx: GenericEndpointContext,
+  classifier?: AuthenticationFailureClassifier,
+  returned?: unknown,
+): Promise<void> {
+  if (!classifier) return;
+  try {
+    if (ctx.path === "/sign-in/email") {
+      const body = ctx.body as Record<string, unknown> | undefined;
+      const target = credentialFailureTarget(body?.email);
+      const userId = returnedUserId(returned);
+      classifier.reset("password", [
+        target ?? "",
+        userId ? subjectFailureTarget(userId) : "",
+      ]);
+      return;
+    }
+    const flow =
+      ctx.path === "/two-factor/verify-totp"
+        ? "totp"
+        : ctx.path === "/two-factor/verify-backup-code"
+          ? "recovery"
+          : null;
+    if (!flow) return;
+    const userId = returnedUserId(returned) ?? (await twoFactorUserId(ctx));
+    if (userId) classifier.reset(flow, [subjectFailureTarget(userId)]);
+  } catch {
+    // Reset is best-effort transient state; durable history is untouched.
+  }
 }

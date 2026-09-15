@@ -2260,13 +2260,18 @@ member administration listing, using the two Task 1.19 privileged permissions.
 Settings mutations include atomic application-owned admin audit. Membership status
 workflows and all membership mutations remain deferred. No frontend administration,
 role assignment, ownership API, deletion or security-sensitive settings are included.
-Task 1.21 is not started. The temporary Better Auth #10387 exception is unchanged.
+Task 1.21a, Task 1.21b-0, Task 1.21b and Task 1.21c are complete foundations;
+Task 1.21d records the remaining failure-classification policy. The temporary Better
+Auth #10387 exception is unchanged.
 
 ### Task 1.21a — Google Pre-Authentication Bridge
 
 Maps to Phase 1A and Phase 1L non-bypass. Internal bridge foundation completed for review; Google production authentication remains disabled. Native callback session creation is suppressed for verified/enabled-factor users, who receive only pre-auth state. Already-linked no-factor identities can authenticate internally without a password or assurance. New social signup and public linking are not activated.
 
-Task 1.21b remains unstarted: native TOTP/recovery completion, atomic challenge/session transition, public callback integration, required authentication security events and throttling must be reviewed before activation. Apple, mobile transport and frontend authentication remain deferred. The separate accepted better-auth/better-auth#10387 exception is unchanged.
+Task 1.21b completed native TOTP/recovery completion and atomic challenge/session
+transition. Public activation remains gated by its reviewed boundary and policy;
+Apple, mobile transport and frontend authentication remain deferred. The separate
+accepted better-auth/better-auth#10387 exception is unchanged.
 
 
 ### Task 1.21b-0 — Authentication Security Event Foundation
@@ -2277,12 +2282,14 @@ transactional success integrations and a separate conclusive-failure writer.
 Operational logging, authentication audit, ownership audit and administration audit
 remain distinct. No public audit API/UI or general analytics platform is introduced.
 
-Task 1.21b is not resumed. Its durable event writer is now available for review, but
-Google challenge/factor/session completion still requires its own atomic integration.
-Ordinary recovery-login auditing is deferred under the approved reusable-primitive
-allowance; the existing recovery-assurance proof proves atomic event/consumption
-rollback. Repeated/suspicious incident classification and automatic failure emission
-need an explicit threshold policy. Full Phase 1 audit coverage is not declared done.
+Task 1.21b-0 did not resume Google completion. Its durable event writer remains the
+foundation used by the completed Google challenge/factor/session integration.
+At that point ordinary recovery-login auditing was deferred under the approved
+reusable-primitive allowance; the existing recovery-assurance proof established
+atomic event/consumption rollback. Task 1.21e later supersedes that deferral by
+wrapping the mounted ordinary recovery-login endpoint with the shared atomic
+redemption primitive. Task 1.21b-0 intentionally left repeated/suspicious incident
+classification to a separate policy task; Task 1.21d now defines that threshold.
 Google remains disabled pending all activation prerequisites. The accepted #10387
 exception is unchanged and does not include the unaccepted native Google 2FA bypass.
 Task 1.22 is not started.
@@ -2295,8 +2302,8 @@ single Google-challenge consumption, mandatory recovery audit and exactly one
 ordinary session in one PostgreSQL transaction. No assurance is issued by login.
 
 Production Google authentication remains disabled. Public callback adaptation,
-initiation/callback throttling, public OAuth redirect/state coverage and applicable
-failure-event classification/emission still require review before activation.
+initiation/callback throttling and public OAuth redirect/state coverage still require
+review before activation; Task 1.21d now defines the applicable failure-event policy.
 The only accepted exception is better-auth/better-auth#10387 cross-challenge TOTP
 reuse; native Google factor bypass remains unaccepted. No Apple, mobile sessions,
 new social signup, linking/unlinking or next-roadmap work is included.
@@ -2316,7 +2323,49 @@ users receive the ordinary opaque session and factor-enabled users receive only 
 existing pre-auth cookie before TOTP/recovery completion. No Google session grants
 elevation, recent step-up, tenant state or role changes. New social signup and
 general linking/unlinking remain disabled. The fixed production gate remains false
-while the ADR 0003 repeated/suspicious authentication-failure classification and
-the complete public activation evidence remain under review. Task 1.22 is not
-started; `better-auth/better-auth#10387` remains the only accepted authentication
-exception and does not include the native Google 2FA bypass.
+while the complete public activation evidence remains under review. Task 1.22 is
+not started; `better-auth/better-auth#10387` remains the only accepted
+authentication exception and does not include the native Google 2FA bypass.
+
+### Task 1.21d — Authentication Failure Classification Policy
+
+Maps to the remaining ADR 0003 authentication-security requirement. The approved
+policy classifies only conclusive password, TOTP, recovery-code and Google-factor
+proof failures. Five failures for one normalized target and flow in a rolling
+ten-minute window emit at most one existing `authentication_failure` event, then
+enter a ten-minute suppression window. Equality at ten minutes expires the window.
+Successful authentication resets the transient counter.
+
+Malformed input, Origin/CSRF failure, unknown routes, rate limits, storage/service
+errors, lockout responses and other non-proof failures do not count. The classifier
+is user/flow isolated, bounded to 10,000 in-memory keys, prunes expired entries,
+fails closed at saturation and resets on process restart. Only the existing closed
+metadata (`method` and `category`) is persisted; targets, secrets, provider data and
+request details are excluded. Durable failure writing occurs after the conclusive
+authentication denial in a separate transaction and can never grant access.
+
+Task 1.21d adds no schema, migration, dependency or Better Auth change. Google
+production authentication remains disabled pending the complete public activation
+matrix; the native Google TOTP bypass remains unaccepted and
+`better-auth/better-auth#10387` remains the only accepted authentication exception.
+Task 1.22 is not started.
+
+### Task 1.21e — Atomic Recovery Code Redemption
+
+Maps to Phase 1A/1L authentication integrity. A pre-existing Better Auth 1.7.4
+Drizzle/PostgreSQL compare-and-swap race allowed concurrent independent challenges
+to redeem one encrypted recovery code more than once. Task 1.21e adds the narrow
+application-owned transaction boundary required to close that race without
+changing Better Auth, its dependencies or its schema.
+
+The ordinary recovery-login endpoint, Google recovery completion and recovery-based
+elevation/step-up all serialize on the canonical user and verified factor rows,
+re-read current state after the lock, and use the native encrypted verifier. Code
+consumption, the required `recovery_code_used` event and the associated successful
+security mutation commit together; audit/session failures roll back. Regeneration,
+disable and deletion races cannot resurrect a stale code. Deterministic two-way,
+ten-way, cross-flow and rollback tests plus a disposable 500-iteration probe are
+required evidence. The native double-redemption defect is fixed, not accepted.
+The only accepted authentication exception remains `better-auth/better-auth#10387`,
+which concerns still-valid TOTP reuse across independent challenges. Google
+production authentication remains disabled and Task 1.22 is not started.

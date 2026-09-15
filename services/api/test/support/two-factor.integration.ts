@@ -452,7 +452,7 @@ export function twoFactorIntegrationTests() {
       expect(await sessions()).toEqual(before);
       expect((await rows())[0]!.verified).toBe(false);
     });
-    it("native backup redemption is atomic across independent concurrent challenges and sequential replay fails", async () => {
+    it("application backup redemption is atomic across independent concurrent challenges and sequential replay fails", async () => {
       const material = await activate();
       await pool.query("DELETE FROM session WHERE user_id=$1", [id]);
       const a = await challenge(),
@@ -463,7 +463,6 @@ export function twoFactorIntegrationTests() {
             "/two-factor/verify-backup-code",
             { code: material.backupCodes[0] },
             c,
-            native,
           ),
         ),
       );
@@ -476,7 +475,6 @@ export function twoFactorIntegrationTests() {
             "/two-factor/verify-backup-code",
             { code: material.backupCodes[0] },
             await challenge(),
-            native,
           )
         ).status,
       ).toBe(401);

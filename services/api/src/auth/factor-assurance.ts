@@ -12,6 +12,7 @@ import {
   requireFactorOrigin,
   type FactorMethod,
 } from "./factor-verification-policy.js";
+import type { RecoveryCodeRedemption } from "./recovery-code-redemption.js";
 
 type Native = ReturnType<typeof twoFactor>["endpoints"];
 // Internal proof operation, not an issuer accepting booleans or caller timestamps.
@@ -20,6 +21,7 @@ export class FactorAssurance {
   constructor(
     private readonly database: AuthTransaction,
     private readonly policy = new AssurancePolicy(),
+    private readonly recoveryRedemption?: RecoveryCodeRedemption,
   ) {}
   async complete(
     ctx: GenericEndpointContext,
@@ -54,10 +56,17 @@ export class FactorAssurance {
         const current = await ctx.context.internalAdapter.findSession(
           original.session.token,
         );
-        const [active] = await tx
-          .select()
-          .from(factor)
-          .where(eq(factor.userId, original.user.id));
+        const active =
+          method === "recovery" && this.recoveryRedemption
+            ? (await this.recoveryRedemption.lockFactor(tx, original.user.id))
+                .factor
+            : (
+                await tx
+                  .select()
+                  .from(factor)
+                  .where(eq(factor.userId, original.user.id))
+                  .for("update")
+              )[0];
         if (
           !owned ||
           !current ||

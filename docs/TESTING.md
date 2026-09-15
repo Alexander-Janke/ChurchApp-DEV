@@ -2502,15 +2502,16 @@ enrollment activation/session rotation, factor disable/assurance removal, and ba
 regeneration. Recovery-based assurance proof tests show one success/one audit under
 concurrency, no event for failure/replay, and recovery material preserved if audit
 insertion fails. Tests compare secret-bearing values as booleans to avoid dumping
-them. Ordinary recovery-login auditing is deferred under the approved primitive
-allowance; existing native single-use tests remain untouched. No Google completion
-is implemented or enabled by this task.
+them. At the foundation stage ordinary recovery-login auditing was deferred under
+the approved primitive allowance; Task 1.21e now wraps that mounted endpoint with
+the shared atomic redemption boundary. No Google completion is implemented or
+enabled by this task.
 
-No repeated/suspicious incident threshold is inferred from native lockout settings.
-Failure-persistence tests use explicitly classified fixture events; they do not
-claim a production classifier/emitter exists. Full Phase 1 audit coverage still
-requires that policy. The permanent native Google 2FA-bypass characterization and
-the distinct accepted better-auth/better-auth#10387 replay probe remain required.
+No repeated/suspicious incident threshold was inferred from native lockout settings.
+The foundation tests use explicitly classified fixture events; Task 1.21d now adds
+the production classifier/emitter policy without changing native counters. The
+permanent native Google 2FA-bypass characterization and the distinct accepted
+better-auth/better-auth#10387 replay probe remain required.
 
 ## Task 1.21b — Google completion regressions
 
@@ -2559,4 +2560,46 @@ fixed controller does not accept a return-to value, so open-redirect variants ar
 covered as policy tests. Initiation/callback limiter windows and bounded capacity
 are deterministic. Since the production gate remains false, no test claims that
 Google is publicly active; activation requires a separate review of every matrix
-row, including the ADR 0003 repeated/suspicious-failure policy.
+row, including the Task 1.21d classification policy.
+
+## Task 1.21d — authentication failure classification regressions
+
+`auth-failure-classifier.spec.ts` covers the five-failures-in-ten-minutes threshold,
+strict `age < 10 minutes` expiry, ten-minute suppression, success reset, user/flow
+isolation, concurrent threshold crossing, bounded 10,000-key capacity, target
+normalization and writer-failure fail-closed behavior. The durable event remains the
+closed existing `authentication_failure` registry entry; no target or secret is part
+of its metadata.
+
+Real PostgreSQL factor tests cover credential, native TOTP, native recovery and
+Google-factor failures. They prove one event at threshold, no event for malformed
+input, native lock/rate-limit behavior remains unchanged, and Google failure metadata
+contains only the approved factor method/category. Existing auth-security-event tests
+continue to prove the post-failure transaction boundary and restricted event table.
+No repeated/suspicious threshold is inferred from native lockout counters, and no
+authentication result depends on the availability of the failure-event writer.
+The policy adds no migration; the pinned Better Auth schema and migration chain remain
+unchanged. Google production activation remains disabled pending its complete matrix.
+
+## Task 1.21e — atomic recovery-code redemption regressions
+
+The recovery-login integration wraps the mounted Better Auth backup-code endpoint
+with the application transaction boundary. Tests use real PostgreSQL connections
+and verify the canonical encrypted representation remains valid while the user and
+`two_factor` rows are locked and re-read before native verification. Coverage
+includes sequential replay, two-way and ten-way independent-challenge races,
+ordinary-login versus recovery-assurance cross-flow races, cross-user denial,
+invalid proof, exactly one `recovery_code_used` event, and no duplicate session or
+assurance state. Regeneration, factor-disable and user-deletion interactions are
+serialized by the same stable lock order; stale codes cannot reappear.
+
+Failure-injection tests force audit and session insertion errors after otherwise
+valid proof. They require the transaction to roll back the code, event, session and
+associated operation so the code remains safely usable. Conclusive native failure
+accounting is allowed to commit without authentication success. A disposable
+500-iteration PostgreSQL stress probe supplements deterministic tests and must
+report zero double-success outcomes. The native Better Auth compare-and-swap race
+remains documented as a fixed upstream defect, never as an accepted exception;
+`better-auth/better-auth#10387` remains the separate accepted cross-challenge TOTP
+limitation. All prior credential, TOTP, Google pre-auth/completion, assurance,
+tenant and authentication-event regressions remain required.

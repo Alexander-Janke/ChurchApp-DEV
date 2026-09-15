@@ -20,6 +20,11 @@ import {
   GoogleCompletionLimiter,
 } from "./google-completion-policy.js";
 import { AuthSecurityEventService } from "./auth-security-event.service.js";
+import {
+  AuthenticationFailureClassifier,
+  subjectFailureTarget,
+} from "./auth-failure-classifier.js";
+import type { RecoveryCodeRedemption } from "./recovery-code-redemption.js";
 
 type Native = ReturnType<typeof nativeTwoFactor>["endpoints"];
 const denied = () =>
@@ -47,6 +52,8 @@ export class GoogleCompletion {
   constructor(
     private readonly database: AuthTransaction,
     private readonly bridge: GooglePreAuth,
+    private readonly failureClassifier: AuthenticationFailureClassifier,
+    private readonly recoveryRedemption?: RecoveryCodeRedemption,
   ) {}
 
   async complete(
@@ -88,7 +95,11 @@ export class GoogleCompletion {
         }
         if (typeof owner !== "string") throw denied();
         const pending = await this.bridge.pending(tx, input.challenge, owner);
-        // Protect provider/factor rows against direct concurrent updates too.
+        // Use the shared user/factor lock before any native recovery mutation.
+        // User-first ordering agrees with enrollment/disable and serializes
+        // regeneration, disable and every recovery consumer across connections.
+        if (this.recoveryRedemption)
+          await this.recoveryRedemption.lockFactor(tx, owner);
         await tx
           .select({ id: account.id })
           .from(account)
@@ -96,11 +107,12 @@ export class GoogleCompletion {
             and(eq(account.userId, owner), eq(account.providerId, "google")),
           )
           .for("update");
-        await tx
-          .select({ id: twoFactor.id })
-          .from(twoFactor)
-          .where(eq(twoFactor.userId, owner))
-          .for("update");
+        if (!this.recoveryRedemption)
+          await tx
+            .select({ id: twoFactor.id })
+            .from(twoFactor)
+            .where(eq(twoFactor.userId, owner))
+            .for("update");
         await this.bridge.pending(tx, input.challenge, owner);
         const [source] = await tx
           .select()
@@ -171,6 +183,9 @@ export class GoogleCompletion {
                 code === "TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE"
                   ? 429
                   : 401,
+              subjectUserId: owner,
+              qualifyingFailure:
+                code === "INVALID_CODE" || code === "INVALID_BACKUP_CODE",
             } as const;
           }
           throw error;
@@ -203,15 +218,25 @@ export class GoogleCompletion {
             cookie.startsWith(ctx.context.authCookies.sessionToken.name + "="),
           );
         if (cookies.length !== 1) throw new Error("Missing session transport");
-        return { cookies } as const;
+        return { cookies, subjectUserId: owner } as const;
       });
       if ("failed" in result) {
+        if (result.qualifyingFailure)
+          await this.failureClassifier.observe({
+            flow: "google",
+            method,
+            target: subjectFailureTarget(result.subjectUserId),
+            subjectUserId: result.subjectUserId,
+          });
         if (result.failed === 429)
           throw new APIError("TOO_MANY_REQUESTS", {
             message: "Factor attempts limited",
           });
         throw denied();
       }
+      this.failureClassifier.reset("google", [
+        subjectFailureTarget(result.subjectUserId),
+      ]);
       for (const cookie of result.cookies)
         ctx.responseHeaders.append("set-cookie", cookie);
       const preAuth = ctx.context.createAuthCookie("social_pre_auth");
