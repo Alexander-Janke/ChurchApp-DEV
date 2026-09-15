@@ -1,3 +1,4 @@
+import { googlePreAuthIntegrationTests } from "./support/google-pre-auth.integration.js";
 import { churchAdminIntegrationTests } from "./support/church-admin.integration.js";
 import { mainChurchAdministratorIntegrationTests } from "./support/main-church-administrator.integration.js";
 import { onboardingHttpIntegrationTests } from "./support/onboarding-http.integration.js";
@@ -97,6 +98,7 @@ describe("real PostgreSQL foundation", () => {
   });
 });
 
+googlePreAuthIntegrationTests();
 churchAdminIntegrationTests();
 factorLoginIntegrationTests();
 enrollmentIntegrationTests();

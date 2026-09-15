@@ -20,6 +20,19 @@ export function createAuthPolicy(
   sessionPolicy: AuthSessionPolicy,
 ) {
   return createAuthMiddleware(async (ctx) => {
+    if (
+      [
+        "/link-social",
+        "/unlink-account",
+        "/get-access-token",
+        "/refresh-token",
+        "/account-info",
+        "/list-accounts",
+      ].includes(ctx.path)
+    )
+      throw new APIError("FORBIDDEN", {
+        message: "Provider account management is not available",
+      });
     if (ctx.path === "/sign-up/email") {
       const body: unknown = ctx.body;
       if (

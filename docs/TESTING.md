@@ -2473,3 +2473,11 @@ Existing total-history assertions advance from ten to eleven migrations; all pri
 security assertions, five canonical onboarding roles and zero assignments remain.
 Run the full contracts/API/PostgreSQL/web/admin/Flutter/Playwright suite, Drizzle check,
 pinned Better Auth core-schema comparison, formatting and diff checks before review.
+
+## Task 1.21a Google bridge regressions
+
+google-pre-auth.spec.ts covers configuration, strict input, hashed credentials, production closure and native hook scope. support/google-pre-auth.integration.ts uses disposable PostgreSQL and deterministic Google doubles with external network forbidden. Native OAuth state/cookie verification remains active.
+
+Permanent characterization: KNOWN UPSTREAM/NATIVE LIMITATION — Google social callback bypasses Better Auth two-factor enforcement in pinned 1.7.4. The isolated native instance demonstrates the bypass; bridge regressions require zero pre-factor sessions. This is separate from the unchanged accepted better-auth/better-auth#10387 probe.
+
+Tests cover linked no-factor login/logout, same-email collisions, provider ambiguity, closed native/link/token routes, exact expiry, identity/factor invalidation, same-state replay, independent concurrent callbacks, concurrent single consumption, forced challenge-write failure and a session-insert rejection trigger. An independent connection observes committed pre-auth state but no session during callback processing. Profile, onboarding, tenant-member and admin-settings endpoints deny pre-auth, including with assurance on another session. Clean/repeated migrations remain through 0010. Public factor completion is not part of this task.

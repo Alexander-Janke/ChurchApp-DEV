@@ -2261,3 +2261,9 @@ Settings mutations include atomic application-owned admin audit. Membership stat
 workflows and all membership mutations remain deferred. No frontend administration,
 role assignment, ownership API, deletion or security-sensitive settings are included.
 Task 1.21 is not started. The temporary Better Auth #10387 exception is unchanged.
+
+### Task 1.21a — Google Pre-Authentication Bridge
+
+Maps to Phase 1A and Phase 1L non-bypass. Internal bridge foundation completed for review; Google production authentication remains disabled. Native callback session creation is suppressed for verified/enabled-factor users, who receive only pre-auth state. Already-linked no-factor identities can authenticate internally without a password or assurance. New social signup and public linking are not activated.
+
+Task 1.21b remains unstarted: native TOTP/recovery completion, atomic challenge/session transition, public callback integration, required authentication security events and throttling must be reviewed before activation. Apple, mobile transport and frontend authentication remain deferred. The separate accepted better-auth/better-auth#10387 exception is unchanged.

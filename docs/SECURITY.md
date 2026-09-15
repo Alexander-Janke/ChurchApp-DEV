@@ -2539,3 +2539,11 @@ it is single-instance, not distributed. Admin responses are no-store and failure
 are sanitized. Security-critical settings, membership/role mutation, owner transfer,
 church deletion and platform administration are not exposed. The accepted Better
 Auth #10387 limitation and all other existing factor protections remain unchanged.
+
+## Task 1.21a Google pre-authentication
+
+KNOWN UPSTREAM/NATIVE LIMITATION — Google social callback bypasses Better Auth two-factor enforcement in pinned 1.7.4. This is NOT accepted for production. Native Google HTTP authentication remains disabled. The internal bridge produces only a ten-minute HttpOnly, SameSite=Lax pre-auth cookie for enabled/verified-factor accounts. It is not a session, tenant context, permission, elevation or step-up proof. Existing secure-cookie configuration applies.
+
+Only already-linked provider identities are supported; implicit email linking and signup are disabled. Provider email refresh cannot rewrite canonical email. Social-only users need no password, and existing reset protection remains unchanged. The bridge stores only challenge credential hashes and immutable user/account/factor bindings, never provider tokens or session secrets. Expiry equality, deletion, replacement, disable, consumption and cross-user access all fail closed. State reservations use database uniqueness and native state/cookie verification still applies. Failed callbacks require fresh initiation.
+
+Google network I/O stays outside database transactions. The short locked factor decision either creates an ordinary no-factor session or inserts pre-auth state only. A rejection trigger proves the latter never attempts a session INSERT; an independent connection observes zero sessions while the callback is still processing. Protected profile/onboarding/tenant/admin APIs deny this state even when another session has assurance. Production activation still requires reviewed completion, HTTP callback/origin protection, throttling and authentication security events. The separate accepted better-auth/better-auth#10387 replay exception remains unchanged.

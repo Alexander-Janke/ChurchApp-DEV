@@ -1,3 +1,5 @@
+import { GooglePreAuth, googlePreAuthPlugin } from "./google-pre-auth.js";
+import { googleCredentials } from "./google-pre-auth-policy.js";
 import { FactorAssurance } from "./factor-assurance.js";
 import { AuthTransaction } from "./auth-transaction.js";
 import { TwoFactorEnrollment } from "./two-factor-enrollment.js";
@@ -88,15 +90,32 @@ export function createBetterAuth(
   }
   const authTransaction = new AuthTransaction(database, transaction);
   const enrollment = new TwoFactorEnrollment(authTransaction);
-  // Better Auth's default 2FA challenge covers credential sign-in but does not
-  // automatically gate OAuth/social authentication; privileged assurance will
-  // remain an application-owned check when those providers are added.
+  const googleBridge = new GooglePreAuth(authTransaction);
+  const google = googleCredentials();
+  // Native social callbacks do not enforce the credential 2FA challenge.
+  // The server-only bridge suppresses their session insertion; public Google
+  // authentication remains disabled pending reviewed factor completion.
   return betterAuth({
     baseURL: getBetterAuthUrl(),
+    socialProviders: google ? { google } : {},
+    account: {
+      accountLinking: { enabled: false, disableImplicitLinking: true },
+    },
+    disabledPaths: [
+      "/sign-in/social",
+      "/callback/google",
+      "/link-social",
+      "/unlink-account",
+      "/get-access-token",
+      "/refresh-token",
+      "/account-info",
+      "/list-accounts",
+    ],
     user: {
       changeEmail: { enabled: false, updateEmailWithoutVerification: false },
     },
     plugins: [
+      googlePreAuthPlugin(googleBridge),
       emailChangePlugin(emailChanges, getBetterAuthUrl()),
       preparationTwoFactor(
         enrollment,
@@ -162,6 +181,11 @@ export function createBetterAuth(
       session: {
         create: {
           before: async (session, ctx) => {
+            const suppressed = await googleBridge.beforeSession(
+              session.userId,
+              ctx,
+            );
+            if (suppressed === false) return false;
             // Native disable rotates its current session. Rotation must not reset
             // the application-owned absolute lifetime or use caller timestamps.
             if (ctx?.path === "/two-factor/disable") {

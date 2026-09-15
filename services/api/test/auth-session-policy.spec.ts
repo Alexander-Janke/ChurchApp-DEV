@@ -71,6 +71,7 @@ describe("normal web session policy", () => {
     });
     expect(auth.options).not.toHaveProperty("secondaryStorage");
     expect(auth.options.plugins?.map((plugin) => plugin.id)).toEqual([
+      "google-pre-auth",
       "application-email-change",
       "two-factor",
     ]);
