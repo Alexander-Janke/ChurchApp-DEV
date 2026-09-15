@@ -2,7 +2,10 @@ import { GoogleCompletion } from "./google-completion.js";
 import { auditedPasswordOperations } from "./auth-password-audit.js";
 import { auditedSessionRevocation } from "./auth-revocation-audit.js";
 import { GooglePreAuth, googlePreAuthPlugin } from "./google-pre-auth.js";
-import { googleCredentials } from "./google-pre-auth-policy.js";
+import {
+  googleCredentials,
+  googlePublicCallbackURL,
+} from "./google-pre-auth-policy.js";
 import { FactorAssurance } from "./factor-assurance.js";
 import { AuthTransaction } from "./auth-transaction.js";
 import { TwoFactorEnrollment } from "./two-factor-enrollment.js";
@@ -93,10 +96,14 @@ export function createBetterAuth(
   const authTransaction = new AuthTransaction(database, transaction);
   const enrollment = new TwoFactorEnrollment(authTransaction);
   const googleBridge = new GooglePreAuth(authTransaction);
-  const google = googleCredentials();
+  const google = googleCredentials(
+    process.env,
+    googlePublicCallbackURL(getBetterAuthUrl()),
+  );
   // Native social callbacks do not enforce the credential 2FA challenge.
   // The server-only bridge suppresses their session insertion; public Google
-  // authentication remains disabled pending reviewed factor completion.
+  // authentication remains disabled until the complete public activation matrix
+  // is approved.
   return betterAuth({
     baseURL: getBetterAuthUrl(),
     socialProviders: google ? { google } : {},

@@ -26,6 +26,8 @@ import {
   googleBody,
   newSocialChallenge,
   SOCIAL_PRE_AUTH_LIFETIME_MS,
+  GOOGLE_PUBLIC_COMPLETE_PATH,
+  GOOGLE_PUBLIC_ERROR_PATH,
 } from "./google-pre-auth-policy.js";
 
 type Pending = {
@@ -237,8 +239,9 @@ export class GooglePreAuth {
       body: {
         provider: "google",
         disableRedirect: true,
-        callbackURL: new URL("/auth/google/complete", ctx.context.baseURL).href,
-        errorCallbackURL: new URL("/auth/google/error", ctx.context.baseURL)
+        callbackURL: new URL(GOOGLE_PUBLIC_COMPLETE_PATH, ctx.context.baseURL)
+          .href,
+        errorCallbackURL: new URL(GOOGLE_PUBLIC_ERROR_PATH, ctx.context.baseURL)
           .href,
       },
       asResponse: true,

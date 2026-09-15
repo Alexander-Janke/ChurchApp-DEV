@@ -6,7 +6,7 @@ export function configureApp(app: NestExpressApplication): void {
   app.disable("x-powered-by");
   // Native auth throttling can return before endpoint hooks execute.
   app.use(
-    "/api/v1/auth/social/google",
+    ["/api/v1/auth/social/google", "/api/v1/google"],
     (_request: Request, response: Response, next: NextFunction) => {
       response.setHeader("Cache-Control", "no-store");
       next();

@@ -2300,3 +2300,23 @@ failure-event classification/emission still require review before activation.
 The only accepted exception is better-auth/better-auth#10387 cross-challenge TOTP
 reuse; native Google factor bypass remains unaccepted. No Apple, mobile sessions,
 new social signup, linking/unlinking or next-roadmap work is included.
+
+### Task 1.21c — Google Public Activation Boundary
+
+Task 1.21c maps to Phase 1A Google authentication and Phase 1L social-login
+second-factor non-bypass. The application-owned public boundary is implemented at
+`POST /api/v1/google/start` and `GET /api/v1/google/callback`. It uses a fixed Google
+provider redirect URI, native Better Auth state/nonce/PKCE validation, a fixed
+same-origin completion destination and bounded source throttling. Better Auth's
+native social/callback/linking/token routes remain disabled, and the public boundary
+cannot accept a provider selector, return-to URL or account-management operation.
+
+The boundary delegates every callback to the Task 1.21a bridge: no-factor linked
+users receive the ordinary opaque session and factor-enabled users receive only the
+existing pre-auth cookie before TOTP/recovery completion. No Google session grants
+elevation, recent step-up, tenant state or role changes. New social signup and
+general linking/unlinking remain disabled. The fixed production gate remains false
+while the ADR 0003 repeated/suspicious authentication-failure classification and
+the complete public activation evidence remain under review. Task 1.22 is not
+started; `better-auth/better-auth#10387` remains the only accepted authentication
+exception and does not include the native Google 2FA bypass.

@@ -33,6 +33,7 @@ import {
   challengeKey,
   newSocialChallenge,
   SOCIAL_PRE_AUTH_LIFETIME_MS,
+  GOOGLE_PUBLIC_CALLBACK_PATH,
 } from "../../src/auth/google-pre-auth-policy.js";
 import * as schema from "../../src/database/schema/auth.js";
 import * as applicationSchema from "../../src/database/schema/index.js";
@@ -161,7 +162,11 @@ export function googlePreAuthIntegrationTests() {
       });
       expect(r.status).toBe(200);
       const b = (await r.json()) as { url: string };
-      const state = new URL(b.url).searchParams.get("state")!;
+      const authorization = new URL(b.url);
+      const state = authorization.searchParams.get("state")!;
+      expect(authorization.searchParams.get("redirect_uri")).toBe(
+        origin + GOOGLE_PUBLIC_CALLBACK_PATH,
+      );
       return { state, cookie: cookies(r) };
     }
     function callback(start: { state: string; cookie: string }) {
@@ -433,6 +438,22 @@ export function googlePreAuthIntegrationTests() {
       expect((await counts()).sessions).toBe(0);
     });
     it("public initiation/callback/linking/token routes are unavailable even with configured credentials", async () => {
+      await request(app.getHttpServer())
+        .post("/api/v1/google/start")
+        .set("Origin", origin)
+        .send({})
+        .expect(404);
+      await request(app.getHttpServer())
+        .get("/api/v1/google/callback?code=fixture&state=fixture")
+        .expect(404);
+      await request(app.getHttpServer())
+        .post("/api/v1/auth/sign-in/social")
+        .set("Origin", origin)
+        .send({ provider: "google" })
+        .expect(404);
+      await request(app.getHttpServer())
+        .get("/api/v1/auth/callback/google?code=fixture&state=fixture")
+        .expect(404);
       for (const path of [
         "/sign-in/social",
         "/callback/google",

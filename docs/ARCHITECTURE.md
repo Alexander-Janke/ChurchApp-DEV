@@ -2665,3 +2665,37 @@ initiation/callback source throttling, OAuth state/redirect coverage at that pub
 boundary, and applicable authentication-failure event classification/emission.
 Internal bridge state/PKCE/fixed destinations, collision rejection, linking gates
 and factor completion are covered; public activation is a separate decision.
+
+## Task 1.21c — Google Public Activation Boundary
+
+The browser-facing boundary is application-owned and lives outside the Better Auth
+mount at `POST /api/v1/google/start` and `GET /api/v1/google/callback`. It delegates
+provider validation to the pinned Better Auth 1.7.4 Google provider, but only through
+the existing `GooglePreAuth` bridge. The Better Auth-native HTTP social initiation and
+callback paths remain disabled, as do linking, unlinking and provider-token paths; the
+public controller therefore has one possible path and cannot fall through to the
+native session-bypassing callback.
+
+The provider redirect URI is derived once from the configured `BETTER_AUTH_URL` and
+the fixed callback path. The post-authentication destination is the fixed relative
+`/auth/google/complete`; no request return-to value is accepted. Initiation requires
+the exact configured Origin. A top-level callback may omit Origin, but the controller
+accepts it only on this fixed route, supplies the configured origin to the internal
+bridge, and still requires Better Auth's native state/nonce/PKCE validation. Host,
+Forwarded-Host, arbitrary Origin and callback query values never determine either
+redirect URI.
+
+Source throttling is bounded in-process: ten initiation requests and twenty callback
+requests per connected source socket per sliding minute, with 10,000 live buckets.
+Expired buckets are pruned; saturation fails closed. Restart resets this limiter and
+multi-instance coordination is deferred. The existing five-attempt-per-challenge
+factor limiter remains independent. No provider credential or token is stored in the
+application boundary.
+
+`GOOGLE_AUTHENTICATION_ENABLED` remains a fixed `false` gate. Public routes return a
+sanitized not-found response until the full activation matrix is approved. The
+unaccepted native Better Auth Google/TOTP bypass is therefore still unreachable in
+production. The only accepted authentication exception remains the separate
+`better-auth/better-auth#10387` cross-challenge TOTP replay limitation. The undefined
+ADR 0003 repeated/suspicious-failure classification remains a release prerequisite;
+this task does not invent a threshold or activate Google.

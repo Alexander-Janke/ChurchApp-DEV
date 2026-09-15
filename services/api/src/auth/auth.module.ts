@@ -7,9 +7,12 @@ import { DatabaseModule } from "../database/database.module.js";
 import { DatabaseService } from "../database/database.service.js";
 import { createBetterAuth, getBetterAuthUrl } from "./auth.config.js";
 import { AuthEmailModule, AuthEmailSender } from "./auth-email.js";
+import { GooglePublicController } from "./google-public.controller.js";
+import { GooglePublicLimiter } from "./google-public-policy.js";
 
 @Module({
-  providers: [AuthSessionReader],
+  controllers: [GooglePublicController],
+  providers: [AuthSessionReader, GooglePublicLimiter],
   exports: [AuthSessionReader, AssuranceModule],
   imports: [
     AssuranceModule,

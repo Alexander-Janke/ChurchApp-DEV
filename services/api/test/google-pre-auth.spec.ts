@@ -4,6 +4,8 @@ import {
   SOCIAL_PRE_AUTH_LIFETIME_MS,
   challengeHash,
   challengeKey,
+  googlePublicCallbackURL,
+  isApprovedGoogleRedirect,
   googleCredentials,
   googleInput,
   newSocialChallenge,
@@ -14,6 +16,21 @@ describe("Google pre-authentication policy", () => {
   it("keeps production Google disabled and uses the reviewed ten-minute lifetime", () => {
     expect(GOOGLE_AUTHENTICATION_ENABLED).toBe(false);
     expect(SOCIAL_PRE_AUTH_LIFETIME_MS).toBe(600000);
+  });
+  it("uses one fixed public callback and accepts no caller redirect", () => {
+    expect(googlePublicCallbackURL("https://api.example.invalid")).toBe(
+      "https://api.example.invalid/api/v1/google/callback",
+    );
+    expect(isApprovedGoogleRedirect("/auth/google/complete")).toBe(true);
+    for (const value of [
+      "https://attacker.example/",
+      "//attacker.example/",
+      "javascript:alert(1)",
+      "data:text/html,evil",
+      "/auth/google/complete?next=https://attacker.example",
+      "/auth/google/complete%3Fnext%3Dhttps%3A%2F%2Fattacker.example",
+    ])
+      expect(isApprovedGoogleRedirect(value)).toBe(false);
   });
   it("permits absent optional configuration", () =>
     expect(googleCredentials({})).toBeUndefined());

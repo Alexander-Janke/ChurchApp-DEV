@@ -5,6 +5,29 @@ import { APIError } from "better-auth/api";
 export const GOOGLE_AUTHENTICATION_ENABLED = false;
 export const SOCIAL_PRE_AUTH_LIFETIME_MS = 10 * 60 * 1000;
 export const SOCIAL_PRE_AUTH_PREFIX = "social-pre-auth:";
+export const GOOGLE_PUBLIC_START_PATH = "/api/v1/google/start";
+export const GOOGLE_PUBLIC_CALLBACK_PATH = "/api/v1/google/callback";
+export const GOOGLE_PUBLIC_COMPLETE_PATH = "/auth/google/complete";
+export const GOOGLE_PUBLIC_ERROR_PATH = "/auth/google/error";
+
+export function googlePublicCallbackURL(baseURL: string): string {
+  return new URL(GOOGLE_PUBLIC_CALLBACK_PATH, baseURL).href;
+}
+
+export function isApprovedGoogleRedirect(value: unknown): boolean {
+  if (typeof value !== "string" || !value) return false;
+  try {
+    const url = new URL(value, "https://church-platform.invalid");
+    return (
+      url.origin === "https://church-platform.invalid" &&
+      url.pathname === GOOGLE_PUBLIC_COMPLETE_PATH &&
+      !url.search &&
+      !url.hash
+    );
+  } catch {
+    return false;
+  }
+}
 export function challengeHash(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
@@ -16,7 +39,7 @@ export function challengeKey(token: unknown): string {
     throw new APIError("UNAUTHORIZED", { message: "Invalid social challenge" });
   return SOCIAL_PRE_AUTH_PREFIX + challengeHash(token);
 }
-export function googleCredentials(env = process.env) {
+export function googleCredentials(env = process.env, redirectURI?: string) {
   const id = env.GOOGLE_CLIENT_ID;
   const secret = env.GOOGLE_CLIENT_SECRET;
   if (id === undefined && secret === undefined) return undefined;
@@ -30,6 +53,7 @@ export function googleCredentials(env = process.env) {
   return {
     clientId: id,
     clientSecret: secret,
+    ...(redirectURI ? { redirectURI } : {}),
     disableSignUp: true,
     overrideUserInfoOnSignIn: false,
   };

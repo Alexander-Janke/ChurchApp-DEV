@@ -2538,3 +2538,25 @@ Google bypass characterization (unaccepted) and the separate #10387 accepted rep
 probe. Run all prior credential/factor/audit/tenant regressions, unchanged migration
 chain through 0011 (clean/upgrade/repeat), pinned schema comparison, and the full
 contracts/API/client/Flutter/Playwright validation before review.
+
+## Task 1.21c — Google public activation boundary regressions
+
+`google-pre-auth.spec.ts` and `google-public.spec.ts` cover the fixed callback and
+completion destinations, rejection of absolute/protocol-relative/script/data and
+encoded redirect values, the closed production gate and bounded source throttles.
+The PostgreSQL HTTP suite additionally checks that `/api/v1/google/start` and
+`/api/v1/google/callback` remain unavailable while the gate is false, while the
+existing deterministic provider integration continues to exercise the bridge,
+factor-required pre-auth isolation, no-factor opaque-session behavior, state replay,
+same-email collision, provider identity binding, linking/token route closure and
+protected-API denial.
+
+The native Better Auth 1.7.4 Google/TOTP bypass characterization remains permanent
+and explicitly unaccepted. The public tests never call Google or use credentials;
+provider methods are deterministic stubs and external network is rejected. Missing,
+invalid, tampered and replayed state are denied by the native callback path. The
+fixed controller does not accept a return-to value, so open-redirect variants are
+covered as policy tests. Initiation/callback limiter windows and bounded capacity
+are deterministic. Since the production gate remains false, no test claims that
+Google is publicly active; activation requires a separate review of every matrix
+row, including the ADR 0003 repeated/suspicious-failure policy.

@@ -2636,3 +2636,38 @@ better-auth/better-auth#10387 limitation permits only still-valid TOTP reuse acr
 independent challenges, never challenge replay, recovery replay or duplicate sessions.
 Public callback wiring, initiation/callback limits, public OAuth state/redirect review
 and applicable failure-event policy remain production-activation prerequisites.
+
+## Task 1.21c — Google Public Activation Boundary
+
+The only implemented browser entry points are `POST /api/v1/google/start` and
+`GET /api/v1/google/callback`. The start operation accepts an empty body, requires
+the exact configured Origin, and returns only Better Auth's provider authorization
+URL plus its protected state cookie. The callback accepts only `code` and `state`;
+it uses a fixed configured callback URI and fixed `/auth/google/complete` destination.
+Absolute, protocol-relative, JavaScript, data, encoded and double-encoded external
+redirects are not accepted because no caller redirect is accepted at all.
+
+OAuth state/nonce/PKCE validation remains Better Auth's native responsibility. The
+callback route does not trust Host, Forwarded-Host, Origin or query values to derive
+the callback URI. A normal top-level navigation may omit Origin; the server supplies
+the configured origin only after selecting this fixed route, while native state
+validation still gates identity. Factor completion continues to use the separate
+exact-Origin/CSRF boundary from Task 1.21b.
+
+Better Auth's `/sign-in/social`, `/callback/google`, generic callback, linking,
+unlinking and provider-token paths remain disabled. The public controller cannot
+reach them as fallbacks. Google account identity remains the provider subject; a
+matching email does not merge accounts. Google configuration is environment-backed,
+provider tokens remain Better Auth-only, and no provider token or OAuth secret enters
+application responses, logs or `auth_security_event` metadata.
+
+Initiation is limited to ten requests per connected source socket per sliding minute;
+callback processing is limited to twenty. The bounded 10,000-key in-process limiter
+fails closed at capacity and resets on restart; distributed limiting is deferred.
+The fixed `GOOGLE_AUTHENTICATION_ENABLED = false` gate remains in place. This keeps
+the native 1.7.4 Google/TOTP bypass unaccepted and unreachable while the public
+activation matrix is reviewed. The only accepted exception is still
+`better-auth/better-auth#10387`; it does not authorize Google 2FA bypass, challenge
+replay or recovery-code replay. The undefined repeated/suspicious authentication
+failure threshold from ADR 0003 remains a separate prerequisite, so production
+Google authentication is not activated by this task.
