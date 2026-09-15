@@ -2598,3 +2598,41 @@ Google authentication remains production-disabled. Its native 1.7.4 2FA bypass i
 NOT accepted. The only accepted exception remains `better-auth/better-auth#10387`:
 a still-valid TOTP may work across independent challenges. It does not authorize
 recovery-code replay, challenge replay or Google factor bypass.
+
+## Task 1.21b — Google completion boundary
+
+The two `/api/v1/auth/social/google/verify-*` POST endpoints accept only an opaque
+pre-auth credential and TOTP/recovery code. The existing HttpOnly pre-auth cookie
+is preferred, with code-only JSON; explicit challenge JSON is also accepted and
+must agree if the cookie exists. Exact trusted Origin, strict unknown-field rejection,
+no-store and sanitized errors apply. No existing session or trusted-device cookie
+can select an alternate verification mode. No raw session credential is returned
+in JSON. Internal native challenge cookies are never forwarded.
+
+User-first locking and current provider/factor/challenge checks precede native
+verification. All native adapter changes, required recovery audit and Google challenge
+consumption share one AuthTransaction connection. Cookies leave only after commit.
+Failure of session or mandatory audit insertion preserves usable recovery material
+and pending challenge; no success evidence commits. Concurrent completions yield at
+most one session/event. Expiry equality and stale bindings deny, including after
+lock waits. No pre-factor authentication or inherited assurance is possible.
+
+Native failure counters persist only for conclusively rejected proofs. Native
+five-attempt challenge and ten-failure/fifteen-minute account lock behavior is
+retained. The bounded shared five-attempt/minute credential limiter is always active;
+native production source limits additionally allow five requests per route/minute.
+Memory limits are single-instance and restart-resettable; persistent native attempt
+budgets are not. Counters are not an invented suspicious-failure classification.
+Automatic `authentication_failure` classification/emission remains separately reviewed.
+
+Successful recovery writes `auth_security_event.recovery_code_used`, purpose
+`authentication`, with historical identity/session identifiers and no code. Ordinary
+native credential-recovery login auditing remains the earlier explicit deferral.
+No church audit table is reused. TOTP completion does not invent a new login event.
+
+Native Google TOTP bypass remains characterized and UNACCEPTED; production initiation
+and callbacks stay disabled with no environment override. The separate accepted
+better-auth/better-auth#10387 limitation permits only still-valid TOTP reuse across
+independent challenges, never challenge replay, recovery replay or duplicate sessions.
+Public callback wiring, initiation/callback limits, public OAuth state/redirect review
+and applicable failure-event policy remain production-activation prerequisites.

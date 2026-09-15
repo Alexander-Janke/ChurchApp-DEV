@@ -1,8 +1,17 @@
+import type { Request, Response, NextFunction } from "express";
 import { ValidationPipe } from "@nestjs/common";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 
 export function configureApp(app: NestExpressApplication): void {
   app.disable("x-powered-by");
+  // Native auth throttling can return before endpoint hooks execute.
+  app.use(
+    "/api/v1/auth/social/google",
+    (_request: Request, response: Response, next: NextFunction) => {
+      response.setHeader("Cache-Control", "no-store");
+      next();
+    },
+  );
   app.setGlobalPrefix("api/v1");
   app.enableShutdownHooks();
   app.useGlobalPipes(

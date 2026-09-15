@@ -1,6 +1,15 @@
 import "reflect-metadata";
 import { randomUUID, randomBytes } from "node:crypto";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
+import { AssurancePolicy } from "../../src/auth/assurance-policy.js";
 import { AuthorizationRepository } from "../../src/authorization/authorization.repository.js";
 import { AuthorizationService } from "../../src/authorization/authorization.service.js";
 import { SessionAuthorizationService } from "../../src/authorization/session-authorization.service.js";
@@ -39,6 +48,9 @@ export function mainChurchAdministratorIntegrationTests() {
       service: SessionAuthorizationService,
       assurance: SessionAssuranceService,
       owner: OwnershipService;
+    // Boundary fixtures and the evaluator must share a clock; PostgreSQL now()
+    // and Date.now() can differ by milliseconds even on the same development host.
+    let evaluationTime: number | undefined;
     const check = async (allowed: boolean, subject = actor, context = A) => {
       for (const key of keys)
         expect(await service.isAuthorized(context, subject, key)).toBe(allowed);
@@ -75,7 +87,10 @@ export function mainChurchAdministratorIntegrationTests() {
       await f.fixturePool.query(
         `GRANT SELECT, UPDATE(session_id) ON session_assurance TO "${f.roleName}"`,
       );
-      assurance = new SessionAssuranceService(f.runtimeDb);
+      assurance = new SessionAssuranceService(
+        f.runtimeDb,
+        new AssurancePolicy(() => evaluationTime ?? Date.now()),
+      );
       service = new SessionAuthorizationService(
         f.tenantDatabase,
         repo,
@@ -92,6 +107,9 @@ export function mainChurchAdministratorIntegrationTests() {
     }, 30000);
     afterAll(async () => {
       await f?.dispose();
+    });
+    afterEach(() => {
+      evaluationTime = undefined;
     });
     beforeEach(async () => {
       await seedTenantFixtures(f.fixturePool, base, { memberships: true });
@@ -149,13 +167,18 @@ export function mainChurchAdministratorIntegrationTests() {
     it.each(["idle", "absolute"])(
       "expired elevation (%s) denies despite current factor",
       async (kind) => {
+        evaluationTime = Date.now();
         await check(true);
         await f.fixturePool.query(
           kind === "idle"
-            ? "update session_assurance set elevated_at=now()-interval '16 minutes',last_elevated_activity_at=now()-interval '15 minutes' where session_id=$1"
-            : "update session_assurance set elevated_at=now()-interval '8 hours' where session_id=$1",
-          [actor.sessionId],
+            ? "update session_assurance set elevated_at=$2::timestamptz-interval '16 minutes',last_elevated_activity_at=$2::timestamptz-interval '15 minutes' where session_id=$1"
+            : "update session_assurance set elevated_at=$2::timestamptz-interval '8 hours' where session_id=$1",
+          [actor.sessionId, new Date(evaluationTime).toISOString()],
         );
+        // Still valid one millisecond before, expired at exact equality.
+        evaluationTime -= 1;
+        await check(true);
+        evaluationTime += 1;
         await check(false);
       },
     );
@@ -312,18 +335,24 @@ export function mainChurchAdministratorIntegrationTests() {
     it.each(["revoked", "expired", "absolute"])(
       "%s underlying session overrides valid elevation",
       async (kind) => {
+        evaluationTime = Date.now();
         await check(true);
         if (kind === "revoked")
           await f.fixturePool.query("delete from session where id=$1", [
             actor.sessionId,
           ]);
-        else
+        else {
+          // UTC string matches Drizzle's canonical timestamp-without-zone mapping.
           await f.fixturePool.query(
             kind === "expired"
-              ? "update session set expires_at=now() where id=$1"
-              : "update session set created_at=now()-interval '30 days' where id=$1",
-            [actor.sessionId],
+              ? "update session set expires_at=$2::timestamp where id=$1"
+              : "update session set created_at=$2::timestamp-interval '30 days' where id=$1",
+            [actor.sessionId, new Date(evaluationTime).toISOString()],
           );
+          evaluationTime -= 1;
+          await check(true);
+          evaluationTime += 1;
+        }
         await check(false);
       },
     );

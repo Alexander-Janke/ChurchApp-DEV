@@ -2286,3 +2286,17 @@ need an explicit threshold policy. Full Phase 1 audit coverage is not declared d
 Google remains disabled pending all activation prerequisites. The accepted #10387
 exception is unchanged and does not include the unaccepted native Google 2FA bypass.
 Task 1.22 is not started.
+
+### Task 1.21b — Google 2FA Completion & Session Issuance
+
+Maps to Phase 1A social authentication + Phase 1L second-factor non-bypass.
+Implemented for review after Task 1.21a and Task 1.21b-0: native TOTP/recovery proof,
+single Google-challenge consumption, mandatory recovery audit and exactly one
+ordinary session in one PostgreSQL transaction. No assurance is issued by login.
+
+Production Google authentication remains disabled. Public callback adaptation,
+initiation/callback throttling, public OAuth redirect/state coverage and applicable
+failure-event classification/emission still require review before activation.
+The only accepted exception is better-auth/better-auth#10387 cross-challenge TOTP
+reuse; native Google factor bypass remains unaccepted. No Apple, mobile sessions,
+new social signup, linking/unlinking or next-roadmap work is included.

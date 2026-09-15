@@ -2511,3 +2511,30 @@ Failure-persistence tests use explicitly classified fixture events; they do not
 claim a production classifier/emitter exists. Full Phase 1 audit coverage still
 requires that policy. The permanent native Google 2FA-bypass characterization and
 the distinct accepted better-auth/better-auth#10387 replay probe remain required.
+
+## Task 1.21b — Google completion regressions
+
+`google-completion.spec.ts` tests strict challenge/code validation, HttpOnly-cookie
+transport, contradictory credentials, rejected authority fields, bounded shared
+attempt limiting, source-rule configuration and closed production/signup policy.
+Mounted HTTP tests require no-store even for early native source-throttling responses.
+The exact endpoint inventory test includes only the two approved completion routes.
+
+`support/google-completion.integration.ts` uses the Task 1.11 disposable restricted
+runtime, real native encrypted factors/verifiers, deterministic Google provider
+stubs and no external network. The harness checks its disposable database name
+before fixture mutation; audit history is not truncated. PostgreSQL tests cover
+success/failure, same- and independent-challenge recovery concurrency, single-session
+issuance, native failure budgets/lockout, exact expiry and lock waits, provider/factor/
+deleted-user races, session/audit failure rollback, privacy, secure cookie completion,
+AuthSessionReader, logout/current/other/all revocation and no tenant/assurance side
+effects. Real elevation/step-up proofs on Google-completed sessions demonstrate
+that another session's assurance cannot transfer and that admin/owner policies remain.
+
+Test timestamps use UTC serialization consistent with Drizzle for Better Auth's
+without-time-zone columns. Exact expiry assertions are retained; no time tolerance
+is introduced into production policy. The suite retains the Task 1.21a native
+Google bypass characterization (unaccepted) and the separate #10387 accepted replay
+probe. Run all prior credential/factor/audit/tenant regressions, unchanged migration
+chain through 0011 (clean/upgrade/repeat), pinned schema comparison, and the full
+contracts/API/client/Flutter/Playwright validation before review.

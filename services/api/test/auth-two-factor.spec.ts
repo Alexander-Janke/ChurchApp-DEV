@@ -27,6 +27,8 @@ it.each(["test", "development", "production"])(
 );
 it("mounts reviewed preparation/login and server-only proof operations", () => {
   expect(Object.keys(preparationTwoFactor().endpoints).sort()).toEqual([
+    "completeGoogleRecovery",
+    "completeGoogleTotp",
     "completeRecoveryElevation",
     "completeRecoveryStepUp",
     "completeTotpElevation",

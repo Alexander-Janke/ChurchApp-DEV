@@ -2594,3 +2594,74 @@ and index. Better Auth-owned schema and versions remain unchanged. Task 1.21b is
 not resumed: Google initiation/callback remain production-disabled; the native
 Google second-factor bypass is unaccepted. The separate temporary accepted
 `better-auth/better-auth#10387` cross-challenge TOTP replay limitation is unchanged.
+
+## Task 1.21b — Google 2FA Completion & Session Issuance
+
+Maps to Phase 1A social authentication and Phase 1L second-factor non-bypass.
+Task 1.21a and Task 1.21b-0 are complete prerequisites. This section supersedes
+older statements that Google factor completion has not been implemented.
+Production Google initiation/callback authentication remains fixed disabled.
+
+The only new HTTP operations are POST `/api/v1/auth/social/google/verify-totp`
+and POST `/api/v1/auth/social/google/verify-recovery-code`. Browser callers send
+`{ code }` with the existing HttpOnly `social_pre_auth` cookie. Controlled callers
+may instead present `{ challenge, code }`; contradictory cookie/body credentials
+are rejected. No other fields, query-based identity, existing authenticated session
+or trusted-device context is accepted. Success returns only `{ status: true }`
+and the existing secure opaque session cookie, clearing the pre-auth cookie.
+Exact configured Origin is required; responses are no-store. Public Google
+initiation/callback, new signup, provider linking/unlinking and token APIs stay closed.
+
+GoogleCompletion uses the existing AuthTransaction adapter routing. A hash lookup
+only identifies a lock target. The transaction locks the user first (the same order
+as enrollment/disable), locks and revalidates the Google challenge, then locks its
+provider/factor rows and rechecks current bindings. The Task 1.21a ten-minute expiry
+is checked after waiting and again after successful proof; equality is expired.
+Deleted, disabled, unverified, replaced or mismatched bindings cannot authenticate.
+
+The coordinator uses supported native TOTP/recovery sign-in endpoints, never a
+custom verifier or synthetic authenticated session. An internal signed native
+challenge and its attempt record reuse verification persistence under a separate
+`social-factor:` namespace derived from the credential hash. They share the original
+expiry and are never delivered to the client. Native proof, recovery-code compare-and-
+swap consumption and native session insertion run on the SAME PostgreSQL connection
+as Google challenge deletion and required `recovery_code_used` audit (purpose
+`authentication`). Audit follows native insertion inside the transaction; neither
+can commit alone. Only after COMMIT is the canonical session cookie forwarded.
+Session/audit failure rolls back code, challenge, session and event. Successful
+completion deletes the auxiliary native state. Existing native verification lookup
+cleanup removes expired records opportunistically; no new worker is introduced.
+
+One Google challenge allows at most one committed session, including across
+concurrent requests/instances. Native conclusive invalid-proof errors are caught
+inside the transaction only to commit failure counters, returning denial after
+commit. Storage/crypto/audit errors abort it. Native five-attempt challenge budgets,
+ten failures followed by a fifteen-minute account lock, and reset after valid proof
+remain. Exhaustion invalidates the Google challenge. No automatic suspicious/repeated
+incident classification is inferred from these counters. The separate durable
+failure writer remains available for a later reviewed classification policy.
+
+The new routes add native source throttling of five requests per route per minute
+where native rate limiting is enabled (production). An always-on bounded application
+limiter shares five attempts per Google credential per sliding minute across both
+methods (10,000 live keys; saturation denies rather than evicting live entries).
+Memory limits reset on restart and are single-instance; the native database-backed
+challenge/account budgets remain effective across instances.
+
+The resulting session is ordinary: seven-day rolling expiry, one-day refresh
+threshold and thirty-day absolute maximum, with normal logout/revocation and
+AuthSessionReader resolution. It issues no elevation/step-up or tenant/role/owner
+state. Another session's assurance cannot transfer. Administration still needs
+explicit elevation; ownership transfer needs elevation and recent step-up.
+
+The permanent native Google TOTP-bypass characterization remains UNACCEPTED.
+`better-auth/better-auth#10387` remains the separate accepted temporary reuse of a
+still-valid TOTP across independent challenges; it does not permit same-challenge
+replay, recovery replay or duplicate sessions. No schema, migration, dependencies,
+Better Auth-owned fields or algorithms changed; migration history ends at 0011.
+
+Before any production Google activation: review public callback adaptation/wiring,
+initiation/callback source throttling, OAuth state/redirect coverage at that public
+boundary, and applicable authentication-failure event classification/emission.
+Internal bridge state/PKCE/fixed destinations, collision rejection, linking gates
+and factor completion are covered; public activation is a separate decision.

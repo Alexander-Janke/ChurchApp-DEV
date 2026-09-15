@@ -84,6 +84,8 @@ export function createSessionResponsePolicy(
   emailSender: AuthEmailSender,
 ) {
   return createAuthMiddleware(async (ctx) => {
+    if (ctx.path.startsWith("/social/google/verify-"))
+      ctx.setHeader("cache-control", "no-store");
     const returned = ctx.context.returned;
     if (isAPIError(returned)) return;
     await completePasswordChange(ctx, emailSender);

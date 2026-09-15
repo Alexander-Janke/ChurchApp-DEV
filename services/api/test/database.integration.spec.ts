@@ -1,3 +1,4 @@
+import { googleCompletionIntegrationTests } from "./support/google-completion.integration.js";
 import { authSecurityEventIntegrationTests } from "./support/auth-security-event.integration.js";
 import { googlePreAuthIntegrationTests } from "./support/google-pre-auth.integration.js";
 import { churchAdminIntegrationTests } from "./support/church-admin.integration.js";
@@ -389,3 +390,5 @@ onboardingIntegrationTests();
 onboardingHttpIntegrationTests();
 
 mainChurchAdministratorIntegrationTests();
+
+googleCompletionIntegrationTests();

@@ -1,3 +1,4 @@
+import type { GoogleCompletion } from "./google-completion.js";
 import { factorBody } from "./factor-verification-policy.js";
 import type { FactorAssurance } from "./factor-assurance.js";
 import { twoFactor } from "better-auth/plugins";
@@ -15,6 +16,7 @@ export function preparationTwoFactor(
   enrollment?: TwoFactorEnrollment,
   baseURL?: string,
   assurance?: FactorAssurance,
+  googleCompletion?: GoogleCompletion,
 ) {
   const native = twoFactor({
     issuer: TWO_FACTOR_ISSUER,
@@ -77,11 +79,38 @@ export function preparationTwoFactor(
       },
     );
   }
+  function completeGoogle(method: "totp" | "recovery") {
+    return createAuthEndpoint(
+      method === "totp"
+        ? "/social/google/verify-totp"
+        : "/social/google/verify-recovery-code",
+      { method: "POST", requireHeaders: true },
+      async (ctx) => {
+        ctx.setHeader("cache-control", "no-store");
+        if (!googleCompletion)
+          throw new APIError("SERVICE_UNAVAILABLE", {
+            message: "Social completion unavailable",
+          });
+        return googleCompletion.complete(ctx, native.endpoints, method);
+      },
+    );
+  }
   // Retain canonical schema, credential challenge hooks and native rate limits.
   // Explicitly omit OTP, subsequent secret/code retrieval and server generators.
   return {
     ...native,
+    rateLimit: [
+      ...native.rateLimit,
+      {
+        pathMatcher: (path: string) =>
+          path.startsWith("/social/google/verify-"),
+        window: 60,
+        max: 5,
+      },
+    ],
     endpoints: {
+      completeGoogleTotp: completeGoogle("totp"),
+      completeGoogleRecovery: completeGoogle("recovery"),
       completeTotpElevation: complete("totp", "elevation"),
       completeRecoveryElevation: complete("recovery", "elevation"),
       completeTotpStepUp: complete("totp", "step-up"),

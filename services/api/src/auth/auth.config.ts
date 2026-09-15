@@ -1,3 +1,4 @@
+import { GoogleCompletion } from "./google-completion.js";
 import { auditedPasswordOperations } from "./auth-password-audit.js";
 import { auditedSessionRevocation } from "./auth-revocation-audit.js";
 import { GooglePreAuth, googlePreAuthPlugin } from "./google-pre-auth.js";
@@ -124,6 +125,7 @@ export function createBetterAuth(
         enrollment,
         getBetterAuthUrl(),
         new FactorAssurance(authTransaction),
+        new GoogleCompletion(authTransaction, googleBridge),
       ),
     ],
     basePath: BETTER_AUTH_BASE_PATH,
