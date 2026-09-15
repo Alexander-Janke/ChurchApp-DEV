@@ -255,6 +255,201 @@ export function factorLoginIntegrationTests() {
       await pool.query("DELETE FROM session WHERE user_id=$1", [id]);
       return material;
     }
+    async function auditEvents(eventType?: string) {
+      return (
+        await pool.query(
+          "SELECT event_type,metadata,actor_user_id,subject_user_id,session_id,outcome FROM auth_security_event WHERE subject_user_id=$1 AND ($2::text IS NULL OR event_type=$2)",
+          [id, eventType ?? null],
+        )
+      ).rows;
+    }
+    async function rejectAudit(work: () => Promise<void>) {
+      await pool.query(
+        "CREATE FUNCTION reject_auth_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'private-audit-fixture'; END $$; CREATE TRIGGER reject_auth_audit BEFORE INSERT ON auth_security_event FOR EACH ROW EXECUTE FUNCTION reject_auth_audit()",
+      );
+      try {
+        await work();
+      } finally {
+        await pool.query(
+          "DROP TRIGGER reject_auth_audit ON auth_security_event; DROP FUNCTION reject_auth_audit()",
+        );
+      }
+    }
+    it("durably audits verified enrollment, regeneration and disable without setup secrets", async () => {
+      const material = await activate();
+      expect(await auditEvents("two_factor_enabled")).toHaveLength(1);
+      const regen = await post(
+        "/two-factor/generate-backup-codes",
+        { password },
+        cookie,
+      );
+      expect(regen.status).toBe(200);
+      expect(await auditEvents("recovery_codes_regenerated")).toHaveLength(1);
+      const before = await sessions();
+      const disabled = await post("/two-factor/disable", { password }, cookie);
+      expect(disabled.status).toBe(200);
+      expect(await auditEvents("two_factor_disabled")).toHaveLength(1);
+      noLeaks(await auditEvents(), [
+        ...material.backupCodes,
+        material.totpURI,
+        cookie,
+      ]);
+      expect(await sessions()).toHaveLength(before.length);
+    });
+    it("failed enrollment audit rolls back native activation and session rotation", async () => {
+      const material = await enroll();
+      const before = await sessions();
+      await rejectAudit(async () => {
+        const response = await post(
+          "/two-factor/enrollment/confirm",
+          { enrollmentId: material.enrollmentId, code: await code() },
+          cookie,
+        );
+        expect(response.status).toBe(503);
+        expect((await rows())[0].verified).toBe(false);
+        expect(await sessions()).toEqual(before);
+        expect(await auditEvents()).toHaveLength(0);
+      });
+      expect(
+        (
+          await post(
+            "/two-factor/enrollment/confirm",
+            { enrollmentId: material.enrollmentId, code: await code() },
+            cookie,
+          )
+        ).status,
+      ).toBe(200);
+      expect(await auditEvents("two_factor_enabled")).toHaveLength(1);
+    });
+    it("failed regeneration audit preserves the old encrypted backup set", async () => {
+      await activate();
+      const before = (await rows())[0].backup_codes;
+      await rejectAudit(async () => {
+        expect(
+          (
+            await post(
+              "/two-factor/generate-backup-codes",
+              { password },
+              cookie,
+            )
+          ).status,
+        ).toBe(503);
+        expect((await rows())[0].backup_codes === before).toBe(true);
+        expect(await auditEvents("recovery_codes_regenerated")).toHaveLength(0);
+      });
+      expect(
+        (await post("/two-factor/generate-backup-codes", { password }, cookie))
+          .status,
+      ).toBe(200);
+      expect(await auditEvents("recovery_codes_regenerated")).toHaveLength(1);
+    });
+    it("failed disable audit preserves factor, session and assurance", async () => {
+      await activate();
+      await complete("totp", "elevation", cookie);
+      const factorsBefore = JSON.stringify(await rows());
+      const sessionsBefore = await sessions();
+      const assuranceBefore = JSON.stringify(await assuranceRows());
+      await rejectAudit(async () => {
+        expect(
+          (await post("/two-factor/disable", { password }, cookie)).status,
+        ).toBe(503);
+        expect(JSON.stringify(await rows()) === factorsBefore).toBe(true);
+        expect(await sessions()).toEqual(sessionsBefore);
+        expect(JSON.stringify(await assuranceRows()) === assuranceBefore).toBe(
+          true,
+        );
+        expect(await auditEvents("two_factor_disabled")).toHaveLength(0);
+      });
+    });
+    it("recovery proof and required audit commit together with no new session, and replay creates no success event", async () => {
+      const material = await activate();
+      const before = await sessions();
+      expect(
+        (await complete("recovery", "step-up", cookie, material.backupCodes[0]))
+          .status,
+      ).toBe(200);
+      const evidence = await auditEvents("recovery_code_used");
+      expect(evidence).toHaveLength(1);
+      expect(evidence[0].metadata).toEqual({ purpose: "step_up" });
+      expect(evidence[0].outcome).toBe("success");
+      expect(
+        (
+          await complete(
+            "recovery",
+            "elevation",
+            cookie,
+            material.backupCodes[0],
+          )
+        ).status,
+      ).toBe(401);
+      expect(await auditEvents("recovery_code_used")).toHaveLength(1);
+      expect(await sessions()).toEqual(before);
+    });
+    it("recovery audit failure rolls back native code consumption and assurance, allowing safe retry", async () => {
+      const material = await activate();
+      const before = (await rows())[0].backup_codes;
+      const originalSessions = await sessions();
+      await rejectAudit(async () => {
+        const result = await complete(
+          "recovery",
+          "elevation",
+          cookie,
+          material.backupCodes[0],
+        );
+        expect(result.status).toBe(503);
+        expect(
+          JSON.stringify(await result.json()).includes("private-audit-fixture"),
+        ).toBe(false);
+        expect((await rows())[0].backup_codes === before).toBe(true);
+        expect(await assuranceRows()).toHaveLength(0);
+        expect(await auditEvents("recovery_code_used")).toHaveLength(0);
+        expect(await sessions()).toEqual(originalSessions);
+      });
+      expect(
+        (
+          await complete(
+            "recovery",
+            "elevation",
+            cookie,
+            material.backupCodes[0],
+          )
+        ).status,
+      ).toBe(200);
+      expect(await auditEvents("recovery_code_used")).toHaveLength(1);
+    });
+    it("concurrent native recovery proofs produce one success and one durable success event", async () => {
+      const material = await activate();
+      const outcomes = await Promise.all(
+        [0, 1].map(() =>
+          complete("recovery", "elevation", cookie, material.backupCodes[0]),
+        ),
+      );
+      expect(
+        outcomes.filter((response) => response.status === 200),
+      ).toHaveLength(1);
+      expect(
+        outcomes.filter((response) => response.status === 401),
+      ).toHaveLength(1);
+      expect(await auditEvents("recovery_code_used")).toHaveLength(1);
+      expect(await assuranceRows()).toHaveLength(1);
+    });
+    it("invalid recovery proof and wrong-password regeneration do not emit success audit", async () => {
+      await activate();
+      expect(
+        (await complete("recovery", "elevation", cookie, "00000-00000")).status,
+      ).toBe(401);
+      expect(
+        (
+          await post(
+            "/two-factor/generate-backup-codes",
+            { password: "wrong password" },
+            cookie,
+          )
+        ).status,
+      ).toBe(400);
+      expect(await auditEvents("recovery_code_used")).toHaveLength(0);
+      expect(await auditEvents("recovery_codes_regenerated")).toHaveLength(0);
+    });
     it("password creates only a challenge; native TOTP then creates one ordinary session without assurance", async () => {
       await ready();
       const c = await challenge();

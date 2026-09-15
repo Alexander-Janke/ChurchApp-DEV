@@ -642,7 +642,7 @@ export function twoFactorIntegrationTests() {
             "SELECT count(*)::int n FROM drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(11);
+      ).toBe(12);
       await pool.query('DELETE FROM "user" WHERE id=$1', [id]);
       expect(await rows()).toHaveLength(0);
     });

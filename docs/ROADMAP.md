@@ -2267,3 +2267,22 @@ Task 1.21 is not started. The temporary Better Auth #10387 exception is unchange
 Maps to Phase 1A and Phase 1L non-bypass. Internal bridge foundation completed for review; Google production authentication remains disabled. Native callback session creation is suppressed for verified/enabled-factor users, who receive only pre-auth state. Already-linked no-factor identities can authenticate internally without a password or assurance. New social signup and public linking are not activated.
 
 Task 1.21b remains unstarted: native TOTP/recovery completion, atomic challenge/session transition, public callback integration, required authentication security events and throttling must be reviewed before activation. Apple, mobile transport and frontend authentication remain deferred. The separate accepted better-auth/better-auth#10387 exception is unchanged.
+
+
+### Task 1.21b-0 — Authentication Security Event Foundation
+
+Maps to ADR 0003 and remaining Phase 1 authentication security auditing. Adds global,
+application-owned append-only event persistence with a closed minimal registry,
+transactional success integrations and a separate conclusive-failure writer.
+Operational logging, authentication audit, ownership audit and administration audit
+remain distinct. No public audit API/UI or general analytics platform is introduced.
+
+Task 1.21b is not resumed. Its durable event writer is now available for review, but
+Google challenge/factor/session completion still requires its own atomic integration.
+Ordinary recovery-login auditing is deferred under the approved reusable-primitive
+allowance; the existing recovery-assurance proof proves atomic event/consumption
+rollback. Repeated/suspicious incident classification and automatic failure emission
+need an explicit threshold policy. Full Phase 1 audit coverage is not declared done.
+Google remains disabled pending all activation prerequisites. The accepted #10387
+exception is unchanged and does not include the unaccepted native Google 2FA bypass.
+Task 1.22 is not started.

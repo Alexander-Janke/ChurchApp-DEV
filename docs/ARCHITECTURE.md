@@ -655,15 +655,14 @@ and drains them on graceful Nest shutdown. This is in-process work, not a durabl
 queue: process crashes can lose pending mail. Future providers need bounded I/O and
 operational failure handling. Production/development without a real provider fail
 closed; tests inject distinct in-memory verification/reset/notification captures.
-Password updates emit limited security event metadata and queue a change notice.
-The native reset notification hook runs after the password write, before session
-revocation, so it records an update rather than claiming the whole reset completed.
-
-Native password writes, token consumption and session deletion are not one atomic
-application transaction. A storage failure can leave a changed password with
-incomplete revocation; no successful response is claimed. A consumed reset token is
-not restored: the user must request another recovery link. These failure paths are
-tested; production recovery UX and durable audit delivery remain future work.
+Task 1.21b-0 wraps native password change/reset in the existing AuthTransaction
+boundary. Password write, reset-token consumption where applicable, required
+session revocation and durable authentication events commit on one connection.
+Storage/audit failure rolls the operation back, including the reset token; no
+successful response or password-change notification is issued. Notifications are
+queued only after commit. Delivery remains in-process and can be lost on a crash;
+this does not claim exactly-once mail delivery. Native password proof, hashing,
+passwordless-account restrictions and the established session policy are retained.
 
 Do not store long-lived sensitive credentials insecurely in clients.
 
@@ -2527,3 +2526,71 @@ A hash-keyed callback reservation in the existing verification table allows only
 Application-owned `social-pre-auth:` verification records contain immutable user ID, canonical Google account row ID, hashes binding its provider subject and enrolled factor, and a server-generated event ID. A 256-bit random cookie credential is stored only as SHA-256 in the record key. The workflow expires ten minutes after creation; equality is expired. Every resolution rechecks live user/account/factor bindings. Deletion, unlinking, factor replacement or disable invalidates the challenge. User deletion can leave an inert verification record until cleanup; it cannot authenticate. Callback reservations use a separate `google-callback-event:` namespace and contain only a state hash, marker and timestamps. Neither namespace stores provider tokens or session tokens. No schema or migration is needed.
 
 The internal consumption primitive locks and removes a challenge exactly once, but grants no session or assurance. Task 1.21b must bind actual native TOTP/recovery proof, consumption and resulting session creation in one reviewed transaction. There is no public completion endpoint in 1.21a. The pre-auth cookie is not a Better Auth session, so AuthSessionReader and all protected APIs reject it. Existing browser session/trusted-device cookies are rejected at bridge entry; assurance from another session is never inherited. Internal entry points require the exact configured Origin and fixed application destinations. Public browser callback adaptation, throttling and required authentication security events remain activation prerequisites.
+
+
+## Task 1.21b-0 — Authentication Security Event Foundation
+
+`auth_security_event` is application-owned global identity infrastructure, separate
+from operational Nest Logger messages, tenant `church_ownership_audit`, and tenant
+`church_admin_audit`. It is not a general audit platform. It has no tenant ID, tenant
+RLS, public read endpoint or mutation API. The internal `AuthSecurityEventService`
+accepts a caller-owned PostgreSQL transaction and strictly validated event input;
+it cannot authenticate, create a session, issue assurance or grant permissions.
+
+The closed registry is `password_changed`, `password_reset`, `email_changed`,
+`two_factor_enabled`, `two_factor_disabled`, `recovery_codes_regenerated`,
+`recovery_code_used`, `session_revoked`, and `authentication_failure`. These cover
+implemented ADR 0003 authentication operations and the explicitly approved failure
+persistence foundation. Provider linking/unlinking and factor reset are not enabled;
+no speculative keys for them are added. Privileged grants/revocations and ownership
+remain separate domain responsibilities, not duplicate authentication events.
+
+The table stores a server-generated ID, event type, historical actor/subject/session
+IDs, derived success/failure outcome, tightly constrained JSON metadata, and a
+PostgreSQL timestamp. Success identifies the account proving the operation as both
+actor and subject; password reset may have no session. Unattributed failures may
+have null identifiers. `session_revoked.session_id` identifies the revoked session;
+other events reference the initiating/proving session when one exists. Recovery
+metadata is only `purpose` (`authentication`, `elevation`, `step_up`); failure
+metadata is only `method` (`password`, `totp`, `recovery`) and `category` (`repeated`,
+`suspicious`). All other metadata is empty. Unknown keys fail closed in the writer
+and database. A subject/time/ID index supports chronological subject history.
+
+No foreign keys erase historical identifiers when users, sessions, memberships or
+churches are deleted. No automatic retention purge is introduced; retention/access
+and later erasure policy require separate review. Runtime must receive INSERT only
+on this table, without SELECT/UPDATE/DELETE/TRUNCATE/DDL or table-owner authority;
+disposable restricted-runtime tests prove these grants. The migration does not
+assume a production role name or grant access to PUBLIC. No church context is needed.
+
+Enrollment confirmation, disable, regeneration, password changes/resets, explicit
+current/specific/other/all session revocation, and completed email changes audit in
+the same transaction as their business writes. A revoked-session event is written
+for each actually removed session in explicit revocation and password/email flows;
+no-op requests write none. Native factor session rotation is represented by its
+factor lifecycle event. The mandatory event failing aborts all enclosing writes.
+Existing operational notification/logging remains separate and is not evidence of
+durable commit.
+
+Recovery-code use is integrated into the existing transactional elevation/step-up
+proof boundary. Native consumption, event insertion and the explicitly requested
+assurance mutation share one AuthTransaction connection; no new session is created.
+Per Task 1.21b-0 section 15, ordinary native recovery-login wrapping is deferred;
+its existing single-use behavior remains unchanged. The reusable writer and native
+recovery-proof rollback/concurrency tests establish the boundary Task 1.21b can use
+later with its own atomic challenge and session issuance. Do not claim ordinary
+recovery-login success is already durably audited.
+
+ADR 0003 does not define a repeated/suspicious incident threshold. Per the approved
+foundation-only allowance, automatic classification/emission is deferred, without
+changing native attempt counters, lockout or rate limiting. `recordFailure` is a
+separate narrow transaction invoked only after a classified failure is conclusively
+determined and its authentication transaction has ended. Its failure never grants
+access. No background retry or general event processor is introduced. Failure-policy
+review/emission remains required before claiming complete Phase 1 audit coverage.
+
+Migration `0011_auth_security_event_foundation` adds only this table, constraints
+and index. Better Auth-owned schema and versions remain unchanged. Task 1.21b is
+not resumed: Google initiation/callback remain production-disabled; the native
+Google second-factor bypass is unaccepted. The separate temporary accepted
+`better-auth/better-auth#10387` cross-challenge TOTP replay limitation is unchanged.

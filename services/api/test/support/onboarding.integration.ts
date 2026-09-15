@@ -567,7 +567,7 @@ export function onboardingIntegrationTests() {
             "SELECT count(*)::int n FROM drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(11);
+      ).toBe(12);
     });
   });
 }

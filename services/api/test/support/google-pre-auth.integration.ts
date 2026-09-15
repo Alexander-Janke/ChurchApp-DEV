@@ -102,7 +102,10 @@ export function googlePreAuthIntegrationTests() {
       );
       await stubProvider(auth);
     });
-    afterEach(() => vi.restoreAllMocks());
+    afterEach(() => {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+    });
     afterAll(async () => {
       try {
         if (app) await app.close();
@@ -263,6 +266,11 @@ export function googlePreAuthIntegrationTests() {
       expect((await counts()).sessions).toBe(0);
     });
     it("already-linked no-factor social-only account receives only an ordinary revocable session", async () => {
+      // Native createdAt/expiresAt sample Date independently; keep the exact
+      // seven-day assertion deterministic without broadening session policy.
+      const now = Date.now();
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(now);
       await pool.query(
         'UPDATE "user" SET two_factor_enabled=false WHERE id=$1',
         [userId],
@@ -666,7 +674,7 @@ export function googlePreAuthIntegrationTests() {
       const history = await pool.query(
         "SELECT count(*)::int count FROM drizzle.__drizzle_migrations",
       );
-      expect(history.rows[0].count).toBe(11);
+      expect(history.rows[0].count).toBe(12);
       expect((await pending(raw)).userId === userId).toBe(true);
     });
   });

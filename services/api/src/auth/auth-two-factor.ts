@@ -22,7 +22,7 @@ export function preparationTwoFactor(
     backupCodeOptions: { storeBackupCodes: "encrypted" },
   });
   function coordinated(
-    operation: "begin" | "confirm" | "disable",
+    operation: "begin" | "confirm" | "disable" | "regenerate",
     path: string,
   ) {
     return createAuthEndpoint(
@@ -92,7 +92,10 @@ export function preparationTwoFactor(
         "/two-factor/enrollment/confirm",
       ),
       disableTwoFactor: coordinated("disable", "/two-factor/disable"),
-      generateBackupCodes: native.endpoints.generateBackupCodes,
+      generateBackupCodes: coordinated(
+        "regenerate",
+        "/two-factor/generate-backup-codes",
+      ),
       verifyTOTP: native.endpoints.verifyTOTP,
       verifyBackupCode: native.endpoints.verifyBackupCode,
     },

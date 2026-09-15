@@ -212,6 +212,41 @@ export function emailChangeIntegrationTests() {
       ).rows;
     }
 
+    it("email change audit failure rolls back identity/workflow/session mutation and permits safe retry", async () => {
+      const id = await register();
+      const a = await login();
+      const mail = await phase2(a.cookie);
+      const originalEmail = (await owner(id)).email;
+      await pool.query(
+        "CREATE FUNCTION reject_email_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'private-audit-fixture'; END $$; CREATE TRIGGER reject_email_audit BEFORE INSERT ON auth_security_event FOR EACH ROW EXECUTE FUNCTION reject_email_audit()",
+      );
+      try {
+        await verify(mail.token).expect(503);
+        expect((await owner(id)).email).toBe(originalEmail);
+        expect((await workflows())[0].status).toBe("pending_new_email");
+        expect(
+          (
+            await pool.query(
+              "SELECT count(*)::int n FROM auth_security_event WHERE subject_user_id=$1",
+              [id],
+            )
+          ).rows[0].n,
+        ).toBe(0);
+      } finally {
+        await pool.query(
+          "DROP TRIGGER reject_email_audit ON auth_security_event; DROP FUNCTION reject_email_audit()",
+        );
+      }
+      await verify(mail.token).expect(200);
+      expect(
+        (
+          await pool.query(
+            "SELECT count(*)::int n FROM auth_security_event WHERE subject_user_id=$1 AND event_type='email_changed'",
+            [id],
+          )
+        ).rows[0].n,
+      ).toBe(1);
+    });
     it("requires an authenticated session and keeps native changeEmail disabled", async () => {
       await post("/email-change/request", { newEmail: destination }).expect(
         401,
@@ -629,6 +664,7 @@ export function emailChangeIntegrationTests() {
         "0008_two_factor_enrollment_binding",
         "0009_primary_owner_foundation",
         "0010_church_admin_audit_foundation",
+        "0011_auth_security_event_foundation",
       ];
       const expectedHashes = migrationNames.map((name) =>
         createHash("sha256")

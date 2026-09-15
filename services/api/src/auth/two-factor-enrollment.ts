@@ -1,3 +1,4 @@
+import { AuthSecurityEventService } from "./auth-security-event.service.js";
 import { eq, sql } from "drizzle-orm";
 import type { GenericEndpointContext } from "better-auth";
 import { APIError, getSessionFromCtx, isAPIError } from "better-auth/api";
@@ -15,7 +16,7 @@ import {
 } from "./two-factor-enrollment-policy.js";
 
 type Native = ReturnType<typeof twoFactor>["endpoints"];
-type Operation = "begin" | "confirm" | "disable";
+type Operation = "begin" | "confirm" | "disable" | "regenerate";
 
 export class TwoFactorEnrollment {
   constructor(
@@ -63,7 +64,7 @@ export class TwoFactorEnrollment {
         if (factors.length > 1) throw staleEnrollment();
         const active = factors[0];
         if (
-          operation !== "disable" &&
+          (operation === "begin" || operation === "confirm") &&
           (current.user.twoFactorEnabled === true ||
             (active?.verified !== false && !!active))
         )
@@ -105,10 +106,25 @@ export class TwoFactorEnrollment {
                   ...call,
                   body: { code: input.code! },
                 })
-              : await native.disableTwoFactor({
-                  ...call,
-                  body: { password: input.password! },
-                });
+              : operation === "regenerate"
+                ? await native.generateBackupCodes({
+                    ...call,
+                    body: { password: input.password! },
+                  })
+                : await native.disableTwoFactor({
+                    ...call,
+                    body: { password: input.password! },
+                  });
+        if (operation === "regenerate") {
+          await new AuthSecurityEventService().record(tx, {
+            eventType: "recovery_codes_regenerated",
+            actorUserId: identity.id,
+            subjectUserId: identity.id,
+            sessionId: current.session.id,
+            metadata: {},
+          });
+          return result;
+        }
         if (operation === "begin") {
           const [generated] = await tx
             .select()
@@ -154,6 +170,16 @@ export class TwoFactorEnrollment {
             .set({ createdAt: current.session.createdAt })
             .where(eq(session.id, replacement.session.id));
         }
+        await new AuthSecurityEventService().record(tx, {
+          eventType:
+            operation === "confirm"
+              ? "two_factor_enabled"
+              : "two_factor_disabled",
+          actorUserId: identity.id,
+          subjectUserId: identity.id,
+          sessionId: current.session.id,
+          metadata: {},
+        });
         await tx.delete(enrollment).where(eq(enrollment.userId, identity.id));
         return {
           response: { status: true, sessionRotated: true },

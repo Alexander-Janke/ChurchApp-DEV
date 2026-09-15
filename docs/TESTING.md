@@ -2481,3 +2481,33 @@ google-pre-auth.spec.ts covers configuration, strict input, hashed credentials, 
 Permanent characterization: KNOWN UPSTREAM/NATIVE LIMITATION — Google social callback bypasses Better Auth two-factor enforcement in pinned 1.7.4. The isolated native instance demonstrates the bypass; bridge regressions require zero pre-factor sessions. This is separate from the unchanged accepted better-auth/better-auth#10387 probe.
 
 Tests cover linked no-factor login/logout, same-email collisions, provider ambiguity, closed native/link/token routes, exact expiry, identity/factor invalidation, same-state replay, independent concurrent callbacks, concurrent single consumption, forced challenge-write failure and a session-insert rejection trigger. An independent connection observes committed pre-auth state but no session during callback processing. Profile, onboarding, tenant-member and admin-settings endpoints deny pre-auth, including with assurance on another session. Clean/repeated migrations remain through 0010. Public factor completion is not part of this task.
+
+
+## Task 1.21b-0 — Authentication Security Event Foundation
+
+Fast policy tests cover the exact closed registry, event-specific fields, strict
+metadata and secret/unknown-field rejection, historical identifiers, and the
+absence of read/update/delete or authentication authority in the writer.
+
+PostgreSQL tests exercise migration 0011, upgrade from 0010, repeat migration and
+preservation of prior data, insertion without tenant context, INSERT-only restricted
+runtime grants, denied read/update/delete/truncate, SQL validation, historical
+retention and a separate classified-failure transaction after authentication rollback.
+Existing clean migration suites advance to twelve entries; all prior preservation,
+RLS and auth-schema assertions remain and include only the approved new table/index.
+
+Native integration tests prove audit failure rolls back password changes/resets,
+reset-token consumption, session revocation, email identity/workflow mutation,
+enrollment activation/session rotation, factor disable/assurance removal, and backup
+regeneration. Recovery-based assurance proof tests show one success/one audit under
+concurrency, no event for failure/replay, and recovery material preserved if audit
+insertion fails. Tests compare secret-bearing values as booleans to avoid dumping
+them. Ordinary recovery-login auditing is deferred under the approved primitive
+allowance; existing native single-use tests remain untouched. No Google completion
+is implemented or enabled by this task.
+
+No repeated/suspicious incident threshold is inferred from native lockout settings.
+Failure-persistence tests use explicitly classified fixture events; they do not
+claim a production classifier/emitter exists. Full Phase 1 audit coverage still
+requires that policy. The permanent native Google 2FA-bypass characterization and
+the distinct accepted better-auth/better-auth#10387 replay probe remain required.

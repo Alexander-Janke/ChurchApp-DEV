@@ -1,3 +1,4 @@
+import { AuthSecurityEventService } from "./auth-security-event.service.js";
 import { and, eq, sql } from "drizzle-orm";
 import type { GenericEndpointContext } from "better-auth";
 import type { twoFactor } from "better-auth/plugins";
@@ -78,7 +79,18 @@ export class FactorAssurance {
           returnHeaders: true as const,
         };
         if (method === "totp") await native.verifyTOTP(call);
-        else await native.verifyBackupCode(call);
+        else {
+          await native.verifyBackupCode(call);
+          await new AuthSecurityEventService().record(tx, {
+            eventType: "recovery_code_used",
+            actorUserId: current.user.id,
+            subjectUserId: current.user.id,
+            sessionId: owned.id,
+            metadata: {
+              purpose: purpose === "elevation" ? "elevation" : "step_up",
+            },
+          });
+        }
         // No success flag, user ID, session ID or timestamp is accepted as proof.
         // Sample server time AFTER proof; sessions remain locked until commit.
         const now = this.policy.now();

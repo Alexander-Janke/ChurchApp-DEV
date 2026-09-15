@@ -236,6 +236,70 @@ export function passwordIntegrationTests() {
         ).toBe(true);
       },
     );
+    it.each([false, true])(
+      "password audit is atomic with password and revoked sessions (reset=%s)",
+      async (resetFlow) => {
+        const id = await register();
+        const a = await login();
+        await login();
+        const oldHash = await hash(id);
+        if (resetFlow) await requestReset();
+        await pool.query(
+          "CREATE FUNCTION reject_password_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'private-audit-fixture'; END $$; CREATE TRIGGER reject_password_audit BEFORE INSERT ON auth_security_event FOR EACH ROW EXECUTE FUNCTION reject_password_audit()",
+        );
+        try {
+          const response = resetFlow
+            ? await reset(sender.passwordResets.at(-1)!.token)
+            : await post(
+                "/change-password",
+                { currentPassword: password, newPassword: replacement },
+                a.cookie,
+              );
+          expect(response.status).toBe(503);
+          expect((await hash(id)) === oldHash).toBe(true);
+          expect(await count("session")).toBe(2);
+          expect(
+            (
+              await pool.query(
+                "SELECT count(*)::int n FROM auth_security_event WHERE subject_user_id=$1",
+                [id],
+              )
+            ).rows[0].n,
+          ).toBe(0);
+        } finally {
+          await pool.query(
+            "DROP TRIGGER reject_password_audit ON auth_security_event; DROP FUNCTION reject_password_audit()",
+          );
+        }
+        const success = resetFlow
+          ? await reset(sender.passwordResets.at(-1)!.token)
+          : await post(
+              "/change-password",
+              { currentPassword: password, newPassword: replacement },
+              a.cookie,
+            );
+        expect(success.status).toBe(200);
+        const events = (
+          await pool.query(
+            "SELECT event_type,metadata FROM auth_security_event WHERE subject_user_id=$1",
+            [id],
+          )
+        ).rows;
+        expect(
+          events.filter(
+            (row) =>
+              row.event_type ===
+              (resetFlow ? "password_reset" : "password_changed"),
+          ),
+        ).toHaveLength(1);
+        expect(
+          events.filter((row) => row.event_type === "session_revoked"),
+        ).toHaveLength(resetFlow ? 2 : 1);
+        expect(
+          events.every((row) => Object.keys(row.metadata).length === 0),
+        ).toBe(true);
+      },
+    );
     it("rejects a wrong current password without updating credentials or revoking sessions", async () => {
       const id = await register();
       const a = await login();

@@ -179,7 +179,7 @@ export function ownershipIntegrationTests() {
       const before = await f.fixturePool.query(
         "select hash from drizzle.__drizzle_migrations order by id",
       );
-      expect(before.rows).toHaveLength(11);
+      expect(before.rows).toHaveLength(12);
       await migrateFixture(f.fixturePool);
       expect(
         (
@@ -814,7 +814,7 @@ export function ownershipIntegrationTests() {
               "SELECT count(*)::int n FROM drizzle.__drizzle_migrations",
             )
           ).rows[0].n,
-        ).toBe(11);
+        ).toBe(12);
       } finally {
         await upgraded.dispose();
       }

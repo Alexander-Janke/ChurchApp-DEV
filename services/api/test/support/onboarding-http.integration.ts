@@ -76,6 +76,9 @@ export function onboardingHttpIntegrationTests() {
       await f.fixturePool.query(
         `GRANT SELECT, INSERT, UPDATE, DELETE ON "user",account,session,verification,two_factor,two_factor_enrollment,session_assurance,email_change_request,user_profile TO "${f.roleName}"`,
       );
+      await f.fixturePool.query(
+        `GRANT INSERT ON auth_security_event TO "${f.roleName}"`,
+      );
       vi.stubEnv("BETTER_AUTH_SECRET", secret);
       vi.stubEnv("BETTER_AUTH_URL", origin);
       const module = await Test.createTestingModule({ imports: [AppModule] })
@@ -522,7 +525,7 @@ export function onboardingHttpIntegrationTests() {
             "select count(*)::int n from drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(11);
+      ).toBe(12);
       await migrateFixture(f.fixturePool);
       expect(
         (
@@ -530,7 +533,7 @@ export function onboardingHttpIntegrationTests() {
             "select count(*)::int n from drizzle.__drizzle_migrations",
           )
         ).rows[0].n,
-      ).toBe(11);
+      ).toBe(12);
       expect(await counts()).toEqual([1, 1, 5, 2, 0, 1, 1]);
       await complete(res.body.church.id);
     });

@@ -147,6 +147,9 @@ export function churchAdminIntegrationTests() {
       await f.fixturePool.query(
         `GRANT SELECT,INSERT,UPDATE,DELETE ON "user",account,session,verification,two_factor,two_factor_enrollment,session_assurance,email_change_request,user_profile TO "${f.roleName}"`,
       );
+      await f.fixturePool.query(
+        `GRANT INSERT ON auth_security_event TO "${f.roleName}"`,
+      );
       vi.stubEnv("BETTER_AUTH_SECRET", randomBytes(48).toString("hex"));
       vi.stubEnv("BETTER_AUTH_URL", origin);
       const module = await Test.createTestingModule({ imports: [AppModule] })
@@ -307,7 +310,7 @@ export function churchAdminIntegrationTests() {
           "select * from drizzle.__drizzle_migrations order by id",
         )
       ).rows;
-      expect(before).toHaveLength(11);
+      expect(before).toHaveLength(12);
       await patch().expect(200);
       const old = JSON.stringify([await settings(), await audit()]);
       await migrateFixture(f.fixturePool);

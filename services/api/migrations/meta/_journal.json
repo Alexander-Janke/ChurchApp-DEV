@@ -78,6 +78,13 @@
       "when": 1789420514793,
       "tag": "0010_church_admin_audit_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789452676007,
+      "tag": "0011_auth_security_event_foundation",
+      "breakpoints": true
     }
   ]
 }

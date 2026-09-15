@@ -60,10 +60,7 @@ export function enforcePasswordRequest(ctx: GenericEndpointContext) {
   }
 }
 
-export async function completePasswordChange(
-  ctx: GenericEndpointContext,
-  emailSender: AuthEmailSender,
-) {
+export async function revokePasswordSessions(ctx: GenericEndpointContext) {
   if (ctx.path !== "/change-password") return;
   const current = ctx.context.session;
   if (!current) throw new APIError("UNAUTHORIZED", { message: "Unauthorized" });
@@ -88,6 +85,16 @@ export async function completePasswordChange(
       message: "Password operation could not be completed",
     });
   }
+}
+
+export async function completePasswordChange(
+  ctx: GenericEndpointContext,
+  emailSender: AuthEmailSender,
+) {
+  if (ctx.path !== "/change-password") return;
+  const current = ctx.context.session;
+  if (!current) throw new APIError("UNAUTHORIZED", { message: "Unauthorized" });
+  // The audited endpoint commits password + revocations before notification.
   new Logger("AuthModule").log({
     event: "password_changed",
     userId: current.user.id,

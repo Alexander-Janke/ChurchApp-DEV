@@ -1,3 +1,5 @@
+import { auditedPasswordOperations } from "./auth-password-audit.js";
+import { auditedSessionRevocation } from "./auth-revocation-audit.js";
 import { GooglePreAuth, googlePreAuthPlugin } from "./google-pre-auth.js";
 import { googleCredentials } from "./google-pre-auth-policy.js";
 import { FactorAssurance } from "./factor-assurance.js";
@@ -24,7 +26,6 @@ import {
   PASSWORD_MAX_LENGTH,
   PASSWORD_RESET_EXPIRES_IN,
 } from "./auth-password-policy.js";
-import { Logger } from "@nestjs/common";
 import { APIError } from "better-auth/api";
 
 const MIN_SECRET_LENGTH = 32;
@@ -115,6 +116,8 @@ export function createBetterAuth(
       changeEmail: { enabled: false, updateEmailWithoutVerification: false },
     },
     plugins: [
+      auditedSessionRevocation(authTransaction),
+      auditedPasswordOperations(authTransaction, emailSender),
       googlePreAuthPlugin(googleBridge),
       emailChangePlugin(emailChanges, getBetterAuthUrl()),
       preparationTwoFactor(
@@ -140,16 +143,6 @@ export function createBetterAuth(
           recipient: user.email,
           url,
           token,
-        });
-      },
-      onPasswordReset: async ({ user }) => {
-        new Logger("AuthModule").log({
-          event: "password_updated_by_recovery",
-          userId: user.id,
-        });
-        emailSender.dispatchPasswordChanged({
-          recipient: user.email,
-          reason: "reset",
         });
       },
     },

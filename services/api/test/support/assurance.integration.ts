@@ -234,7 +234,7 @@ export function assuranceIntegrationTests() {
       const journal = await pool.query(
         "select hash from drizzle.__drizzle_migrations order by id",
       );
-      expect(journal.rows).toHaveLength(11);
+      expect(journal.rows).toHaveLength(12);
       await migrate(drizzle(pool), { migrationsFolder: folder });
       expect(
         (

@@ -254,12 +254,12 @@ this does not claim complete elimination of statistical timing side channels.
 No durable queue or production provider is implemented. Provider timeouts, crash
 recovery and operational alerting must be addressed before public mail deployment.
 
-Password changes/recovery updates emit security events containing only necessary
-internal identifiers and outcomes, and dispatch a distinct password-change notice.
-No passwords, hashes or recovery/session credentials enter those events. Native
-reset invokes the notice after password update but before all-session deletion;
-failed revocation is an error, not a completed-reset success. Password/token/session
-changes are not one transaction; partial failures require explicit recovery.
+Password changes/resets now commit the native password mutation, required session
+revocations and minimal durable authentication audit on one transaction (Task
+1.21b-0). Reset-token consumption also rolls back if the operation cannot commit.
+A failed mandatory audit never leaves a successful unaudited password mutation.
+Notifications are dispatched after commit; their in-process delivery is not durable
+or exactly-once. Passwords, hashes and reset/session credentials are never audited.
 
 The unchanged production in-memory limiter allows 3 password changes per 10 seconds,
 3 reset requests per 60 seconds, and the general 100 requests per 10 seconds for
@@ -2547,3 +2547,54 @@ KNOWN UPSTREAM/NATIVE LIMITATION — Google social callback bypasses Better Auth
 Only already-linked provider identities are supported; implicit email linking and signup are disabled. Provider email refresh cannot rewrite canonical email. Social-only users need no password, and existing reset protection remains unchanged. The bridge stores only challenge credential hashes and immutable user/account/factor bindings, never provider tokens or session secrets. Expiry equality, deletion, replacement, disable, consumption and cross-user access all fail closed. State reservations use database uniqueness and native state/cookie verification still applies. Failed callbacks require fresh initiation.
 
 Google network I/O stays outside database transactions. The short locked factor decision either creates an ordinary no-factor session or inserts pre-auth state only. A rejection trigger proves the latter never attempts a session INSERT; an independent connection observes zero sessions while the callback is still processing. Protected profile/onboarding/tenant/admin APIs deny this state even when another session has assurance. Production activation still requires reviewed completion, HTTP callback/origin protection, throttling and authentication security events. The separate accepted better-auth/better-auth#10387 replay exception remains unchanged.
+
+
+## Task 1.21b-0 — durable authentication security events
+
+Authentication security audit is global identity infrastructure. It is separate
+from operational logs and the two church-scoped ownership/administration audits.
+There is no audit UI or public audit read/write endpoint. The exact closed registry
+is `password_changed`, `password_reset`, `email_changed`, `two_factor_enabled`,
+`two_factor_disabled`, `recovery_codes_regenerated`, `recovery_code_used`,
+`session_revoked`, `authentication_failure`. The writer derives outcome and
+server/database ID/time; callers cannot supply arbitrary fields or timestamps.
+
+Only historical actor/subject/session identifiers and event-specific enumerated
+metadata persist. No password/hash, factor secret/code, backup material, OAuth
+credential, session token, cookie, request body, exception, IP, user agent,
+geolocation or device fingerprint belongs in this table. Fixed success events
+have empty metadata; recovery use permits only its proof purpose; classified
+failures permit only method and category. SQL constraints also enforce this policy.
+Historical IDs have no cascading foreign keys. No unreviewed retention cleanup is
+added; future access and retention/erasure workflows require separate privacy review.
+
+Normal runtime requires only INSERT on `auth_security_event`. Deployment must not
+grant SELECT, UPDATE, DELETE, TRUNCATE, DDL, ownership or an owner-assumable role.
+This global table does not use church RLS. Repository encapsulation supplies only
+an internal append writer, while restricted-role tests prove database privileges.
+Do not repurpose either church audit for authentication evidence.
+
+Mandatory success audit shares the business transaction for password change/reset,
+completed email change, explicit session revocation, verified enrollment, disable,
+regeneration and existing recovery-based assurance proof. An audit insertion failure
+rolls back the associated mutation. Recovery proof failure/replay produces no false
+success event; concurrency still allows one successful use. Audit persistence alone
+confers no session, assurance, tenant context or permission.
+
+Ordinary recovery-code login remains unchanged and its durable-use integration is
+deferred under the explicit Task 1.21b-0 section 15 allowance. The reusable atomic
+writer is proven with real native recovery proof and rollback/concurrency tests.
+Google completion must incorporate it in the same transaction as challenge/code
+consumption and session issuance. It is not implemented by this foundation task.
+
+ADR 0003 leaves repeated/suspicious classification undefined. No incident threshold
+or automatic emission is invented. A future reviewed classifier may invoke the
+separate failure-persistence transaction after a conclusive failed attempt; failure
+audit cannot be written only into a transaction that will roll back. Native attempt
+protection stays unchanged. This deferral does not declare full Phase 1 security-event
+coverage complete and remains a prerequisite for applicable production activation.
+
+Google authentication remains production-disabled. Its native 1.7.4 2FA bypass is
+NOT accepted. The only accepted exception remains `better-auth/better-auth#10387`:
+a still-valid TOTP may work across independent challenges. It does not authorize
+recovery-code replay, challenge replay or Google factor bypass.

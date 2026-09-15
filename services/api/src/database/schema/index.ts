@@ -12,3 +12,5 @@ export * from "./two-factor-enrollment.js";
 export * from "./ownership.js";
 
 export * from "./church-admin-audit.js";
+
+export * from "./auth-security-event.js";

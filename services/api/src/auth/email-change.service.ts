@@ -1,3 +1,4 @@
+import { AuthSecurityEventService } from "./auth-security-event.service.js";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { APIError, isAPIError } from "better-auth/api";
@@ -213,7 +214,7 @@ export class EmailChangeService {
         const retain =
           initiator &&
           !new AuthSessionPolicy(() => now.getTime()).isExpired(initiator);
-        await tx
+        const revoked = await tx
           .delete(session)
           .where(
             retain
@@ -222,7 +223,24 @@ export class EmailChangeService {
                   ne(session.id, row.initiatingSessionId),
                 )
               : eq(session.userId, row.userId),
-          );
+          )
+          .returning({ id: session.id });
+        const events = new AuthSecurityEventService();
+        await events.record(tx, {
+          eventType: "email_changed",
+          actorUserId: row.userId,
+          subjectUserId: row.userId,
+          sessionId: row.initiatingSessionId,
+          metadata: {},
+        });
+        for (const removed of revoked)
+          await events.record(tx, {
+            eventType: "session_revoked",
+            actorUserId: row.userId,
+            subjectUserId: row.userId,
+            sessionId: removed.id,
+            metadata: {},
+          });
         await tx
           .update(requests)
           .set({

@@ -197,6 +197,78 @@ export function sessionIntegrationTests() {
       ).toBe(false);
     }
 
+    it.each([
+      "/sign-out",
+      "/revoke-session",
+      "/revoke-other-sessions",
+      "/revoke-sessions",
+    ])("%s commits exact revocation evidence without tokens", async (path) => {
+      const owner = await register();
+      const a = await login();
+      const b = await login();
+      await post(
+        path,
+        a.cookie,
+        path === "/revoke-session" ? { sessionId: b.row.id } : {},
+      ).expect(200);
+      const events = (
+        await pool.query(
+          "SELECT event_type,actor_user_id,subject_user_id,session_id,metadata FROM auth_security_event WHERE subject_user_id=$1",
+          [owner.id],
+        )
+      ).rows;
+      expect(events).toHaveLength(path === "/revoke-sessions" ? 2 : 1);
+      expect(
+        events.every(
+          (row) =>
+            row.event_type === "session_revoked" &&
+            row.actor_user_id === owner.id &&
+            row.subject_user_id === owner.id,
+        ),
+      ).toBe(true);
+      safeResponse(events, [a.row.token, b.row.token, password]);
+    });
+    it("mandatory revocation audit failure preserves current and other sessions", async () => {
+      const owner = await register();
+      const a = await login();
+      const b = await login();
+      await pool.query(
+        "CREATE FUNCTION reject_session_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'private-audit-fixture'; END $$; CREATE TRIGGER reject_session_audit BEFORE INSERT ON auth_security_event FOR EACH ROW EXECUTE FUNCTION reject_session_audit()",
+      );
+      try {
+        await post("/revoke-sessions", a.cookie).expect(503);
+        expect(await authenticated(a.cookie)).toBe(true);
+        expect(await authenticated(b.cookie)).toBe(true);
+        expect(
+          (
+            await pool.query(
+              "SELECT count(*)::int n FROM auth_security_event WHERE subject_user_id=$1",
+              [owner.id],
+            )
+          ).rows[0].n,
+        ).toBe(0);
+      } finally {
+        await pool.query(
+          "DROP TRIGGER reject_session_audit ON auth_security_event; DROP FUNCTION reject_session_audit()",
+        );
+      }
+    });
+    it("anonymous and nonexistent-target revocations create no false audit evidence", async () => {
+      const owner = await register();
+      const a = await login();
+      await post("/sign-out").expect(200);
+      await post("/revoke-session", a.cookie, {
+        sessionId: "not-owned",
+      }).expect(200);
+      expect(
+        (
+          await pool.query(
+            "SELECT count(*)::int n FROM auth_security_event WHERE subject_user_id=$1",
+            [owner.id],
+          )
+        ).rows[0].n,
+      ).toBe(0);
+    });
     it("logs in a verified user with an opaque PostgreSQL credential, seven-day expiry and safe browser response", async () => {
       const user = await register();
       const before = Date.now();
